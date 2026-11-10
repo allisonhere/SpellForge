@@ -40,6 +40,10 @@ export interface UiState {
   showLeft?: boolean; showRight?: boolean; showBottom?: boolean;
   leftTab?: string; rightTab?: string; bottomTab?: string;
   view?: "code" | "design";
+  preview?: boolean;
+  scenarioId?: string;
+  /** Testing hook: start the simulation at this speed on launch. Never written back. */
+  autoplay?: number;
   openFiles?: string[]; activeFile?: string | null;
   cursor?: Record<string, { line: number; col: number }>;
 }

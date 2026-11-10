@@ -27,7 +27,7 @@ data/compat-notes.json        (curated, every entry has level + source)
 | 2 | Lua/XML editor & tooling | **Done** except Lua Language Server integration |
 | 3 | Forever API intelligence | **Done** (offline index, import local snapshot). Raw `api.json` → index conversion is `npm run api:build`, not yet in-app |
 | 4 | Visual interface designer | **Done** (Phase 2): `scene.ts`, `layout.ts`, `history.ts`, `codegen.ts`, `templates.ts`, `Designer/Canvas/Inspector/Hierarchy` |
-| 5 | Preview & simulation | Planned (Phase 3) |
+| 5 | Preview & simulation | **Done** (Phase 3): `sim/{rng,types,scenarios,engine,bind}.ts`, `ScenarioPanel`, canvas bindings, event log |
 | 6 | Static analysis & validation | **Done** (Phase 1 scope) |
 | 7 | Deployment & packaging | **Done** |
 | 8 | Optional local AI | Planned (Phase 4); settings schema reserves loopback-only endpoint |
@@ -48,6 +48,10 @@ data/compat-notes.json        (curated, every entry has level + source)
 * **Codegen** (`codegen.ts`): deterministic; emits parents and anchor targets first; escapes strings; output is checked with `luac -p` in tests. Writes only to `Generated/` files that carry the `@generated` marker.
 * **Why separate generated files:** the safest way to *never* destroy hand-written code is to never share a file with it. Fenced in-file regions were considered and rejected for v1.
 
-## Planned for Phase 3
+## Simulation (Phase 3)
 
-* Simulator = deterministic seeded state machine + a restricted Lua sandbox (wasm Lua in a Worker, no host access); unimplemented/protected APIs return warnings, never silent success.
+* **Engine** (`sim/engine.ts`): fixed 100 ms ticks; all randomness from one mulberry32 state stored *in* the simulation state, so a run is a pure function of (scenario, seed, ticks). Chunk size of `advance()` does not matter (tested). Event log capped at 600.
+* **Scenarios** (`sim/scenarios.ts`): plain-number records, merged with per-scene overrides (`scene.scenarios`), so edits persist with the scene.
+* **Bindings** (`sim/bind.ts`): the single table `SUPPORT` defines what the preview can do; `resolve()` maps a binding to fill/colour/text/visibility; `expandEntries()` turns repeaters into grid copies; `checkScene()` reports mismatches. Preview findings flow into the global Problems panel with confidence/evidence labels.
+* **Isolation:** the simulator never executes addon code. A future Lua runtime (WASM in a Worker, no host bindings, instruction budget) would consume the same state and event stream.
+* **UI:** the canvas renders entries from `expandEntries()`; only copy 0 of a repeater is editable. Playback is a `requestAnimationFrame` accumulator; `resetSim()` uses `untrack` (an earlier version subscribed an `$effect` to the value it wrote and reset the run every frame).

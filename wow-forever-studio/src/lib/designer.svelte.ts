@@ -1,3 +1,4 @@
+import { untrack } from "svelte";
 import { ipc, errText } from "./ipc";
 import { store } from "./store.svelte";
 import { History } from "./history";
@@ -5,6 +6,10 @@ import { addNode, childrenOf, deleteNode, descendants, duplicate, instantiate, i
 import { setRect, solve, type Guide } from "./layout";
 import { generate, isGenerated } from "./codegen";
 import { builtInTemplates } from "./templates";
+import { Sim, TICK_MS } from "./sim/engine";
+import { BUILTIN_SCENARIOS, mergeScenarios, scenarioDefaults } from "./sim/scenarios";
+import { checkScene } from "./sim/bind";
+import type { Scenario } from "./sim/types";
 
 export const RESOLUTIONS: [string, number, number][] = [["1280×720", 1280, 720], ["1920×1080", 1920, 1080], ["2560×1440", 2560, 1440], ["3440×1440 ultrawide", 3440, 1440], ["3840×2160", 3840, 2160]];
 const sceneFile = (name: string) => `Design/${name}.scene.json`;
@@ -24,6 +29,54 @@ class Designer {
   history = new History<Scene>();
   historyTick = $state(0);
   private commitTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // ---- simulation (Phase 3) ----
+  preview = $state(false);
+  playing = $state(false);
+  speed = $state(1);
+  scenarioId = $state("solo-combat");
+  sim = $state.raw<Sim>(new Sim(BUILTIN_SCENARIOS[1]!));
+  simVersion = $state(0);
+  scenarios = $derived(mergeScenarios(this.scene.scenarios));
+  scenario = $derived<Scenario>(this.scenarios.find((x) => x.id === this.scenarioId) ?? this.scenarios[0]!);
+  previewIssues = $derived(checkScene(this.scene, this.scenario));
+  private raf = 0; private last = 0; private acc = 0;
+
+  /** Restart the run. Safe to call from an $effect: it must not subscribe to the state it writes. */
+  resetSim() { const sc = $state.snapshot(this.scenario) as Scenario; untrack(() => { this.sim = new Sim(sc); this.acc = 0; this.simVersion = this.simVersion + 1; }); }
+  play() {
+    if (this.playing) return;
+    this.preview = true; this.playing = true; this.last = performance.now();
+    const loop = (now: number) => {
+      if (!this.playing) return;
+      this.acc += Math.min(1000, now - this.last) * this.speed; this.last = now;
+      const ticks = Math.floor(this.acc / TICK_MS);
+      if (ticks > 0) { this.sim.advance(ticks * TICK_MS); this.acc -= ticks * TICK_MS; this.simVersion++; }
+      this.raf = requestAnimationFrame(loop);
+    };
+    this.raf = requestAnimationFrame(loop);
+  }
+  pause() { this.playing = false; cancelAnimationFrame(this.raf); }
+  stepOnce() { this.preview = true; this.pause(); this.sim.step(); this.simVersion++; }
+  togglePreview() { this.preview = !this.preview; if (!this.preview) this.pause(); }
+  /** Edit one parameter of the active scenario. Stored in the scene file as an override of the built-in. */
+  setScenarioParam<K extends keyof Scenario>(key: K, value: Scenario[K]) {
+    this.edit(() => {
+      const list = (this.scene.scenarios ??= []);
+      let o = list.find((x) => x.id === this.scenarioId);
+      if (!o) { o = structuredClone($state.snapshot(this.scenario)) as Scenario; list.push(o); }
+      o[key] = value;
+    }, true);
+  }
+  resetScenarioOverride() { this.edit(() => { this.scene.scenarios = (this.scene.scenarios ?? []).filter((x) => x.id !== this.scenarioId || !scenarioDefaults(x.id)); }, true); }
+  addCustomScenario(name: string) {
+    this.edit(() => {
+      const id = "custom-" + (name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "scenario");
+      (this.scene.scenarios ??= []).push({ ...(structuredClone($state.snapshot(this.scenario)) as Scenario), id, name: name || "Custom scenario", description: "Custom scenario based on " + this.scenario.name });
+      this.scenarioId = id;
+    }, true);
+  }
+  isOverridden = $derived(!!this.scene.scenarios?.some((x) => x.id === this.scenarioId));
 
   solved = $derived(solve(this.scene));
   generated = $derived(generate(this.scene));

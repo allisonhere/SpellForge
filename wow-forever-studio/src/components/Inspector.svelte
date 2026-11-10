@@ -1,6 +1,7 @@
 <script lang="ts">
   import { designer as d } from "../lib/designer.svelte";
-  import { LAYERS, POINTS, STRATA, setName, type Rgba, type SceneNode } from "../lib/scene";
+  import { LAYERS, POINTS, STRATA, setName, isContainer, type Rgba, type SceneNode } from "../lib/scene";
+  import { SUPPORT } from "../lib/sim/bind";
 
   const n = $derived(d.selected);
   const sibs = $derived(n ? d.scene.order.map((i) => d.scene.nodes[i]!).filter((x) => x.id !== n.id && x.parent === n.parent) : []);
@@ -11,6 +12,8 @@
   const numv = (v: string, f = 0) => { const x = parseFloat(v); return Number.isFinite(x) ? x : f; };
   const set = <K extends keyof SceneNode>(k: K, v: SceneNode[K]) => d.edit(() => { if (n) n[k] = v; });
   let tname = $state("");
+  const stats = $derived(n ? Object.entries(SUPPORT).filter(([, v]) => v.kinds.includes(n.kind)) : []);
+  const units = ["$unit", "player", "target", "party1", "party2", "party3", "party4", "raid1", "raid2", "raid20", "raid40"];
 </script>
 
 {#if !n}
@@ -91,6 +94,40 @@
       {/if}
       <p class="faint small">Canvas text uses a system font; in game the font file above is used, so widths differ slightly. Game textures are shown as placeholders.</p>
     </div>
+
+    <div class="sec">
+      <h4>Simulation binding <span class="faint">(preview only)</span></h4>
+      <label>Drive from
+        <select class="text" value={n.bind?.stat ?? ""} onchange={(e) => d.edit(() => { const v = e.currentTarget.value; if (!v) delete n.bind; else n.bind = { ...(n.bind ?? { unit: "$unit" }), stat: v }; }, true)}>
+          <option value="">none (static)</option>{#each stats as [k, v] (k)}<option value={k}>{k} — {v.summary}</option>{/each}
+        </select></label>
+      {#if n.bind}
+        <div class="g2">
+          <label>Unit<input class="text mono" list="unitlist" value={n.bind.unit} onchange={(e) => d.edit(() => { n.bind!.unit = e.currentTarget.value || "$unit"; }, true)} /></label>
+          <label>Slot<input class="text" type="number" min="0" value={n.bind.slot ?? 0} onchange={(e) => d.edit(() => { n.bind!.slot = Math.max(0, Math.round(numv(e.currentTarget.value))); }, true)} /></label>
+        </div>
+        <datalist id="unitlist">{#each units as u (u)}<option value={u}></option>{/each}</datalist>
+        {#if n.bind.stat === "health"}<label>Colour by<select class="text" value={n.bind.colorBy ?? "class"} onchange={(e) => d.edit(() => { n.bind!.colorBy = e.currentTarget.value as "class" | "threshold" | "none"; }, true)}><option value="class">class / reaction</option><option value="threshold">health threshold</option><option value="none">keep my colours</option></select></label>{/if}
+        {#if n.bind.stat === "auraIcon" || n.bind.stat === "auraTime" || n.bind.stat === "auraStacks"}<label>Aura type<select class="text" value={n.bind.aura ?? ""} onchange={(e) => d.edit(() => { const v = e.currentTarget.value; if (v) n.bind!.aura = v as "buff" | "debuff"; else delete n.bind!.aura; }, true)}><option value="">any</option><option value="buff">buff</option><option value="debuff">debuff</option></select></label>{/if}
+        {#if n.bind.stat === "lowHealth"}<label>Below health %<input class="text" type="number" value={n.bind.threshold ?? 35} onchange={(e) => d.edit(() => { n.bind!.threshold = numv(e.currentTarget.value, 35); }, true)} /></label>{/if}
+        <p class="faint small">{SUPPORT[n.bind.stat]?.summary ?? "Unknown binding"}. Bindings are never written into generated game code.</p>
+      {/if}
+    </div>
+
+    {#if isContainer(n.kind)}
+      <div class="sec">
+        <h4>Group / raid repeater <span class="faint">(preview only)</span></h4>
+        <label class="chk"><input type="checkbox" checked={!!n.repeat} onchange={(e) => d.edit(() => { if (e.currentTarget.checked) n.repeat = { kind: "party", count: 0, columns: 1, gapX: 4, gapY: 4 }; else delete n.repeat; }, true)} /> Repeat this frame per unit</label>
+        {#if n.repeat}
+          <div class="g2"><label>Group<select class="text" value={n.repeat.kind} onchange={(e) => d.edit(() => { n.repeat!.kind = e.currentTarget.value as "party" | "raid"; }, true)}><option value="party">party (party1–4)</option><option value="raid">raid (raid1–40)</option></select></label>
+            <label>Count (0 = scenario)<input class="text" type="number" min="0" max="40" value={n.repeat.count} onchange={(e) => d.edit(() => { n.repeat!.count = Math.max(0, Math.min(40, Math.round(numv(e.currentTarget.value)))); }, true)} /></label></div>
+          <div class="g3b"><label>Columns<input class="text" type="number" min="1" value={n.repeat.columns} onchange={(e) => d.edit(() => { n.repeat!.columns = Math.max(1, Math.round(numv(e.currentTarget.value, 1))); }, true)} /></label>
+            <label>Gap X<input class="text" type="number" value={n.repeat.gapX} onchange={(e) => d.edit(() => { n.repeat!.gapX = numv(e.currentTarget.value); }, true)} /></label>
+            <label>Gap Y<input class="text" type="number" value={n.repeat.gapY} onchange={(e) => d.edit(() => { n.repeat!.gapY = numv(e.currentTarget.value); }, true)} /></label></div>
+          <p class="faint small">Turn on <b>Preview</b> to see the grid for the active scenario. Use <span class="mono">$unit</span> in child bindings.</p>
+        {/if}
+      </div>
+    {/if}
 
     <div class="sec">
       <h4>Template</h4>

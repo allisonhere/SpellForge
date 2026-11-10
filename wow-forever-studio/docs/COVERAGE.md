@@ -48,8 +48,26 @@ Not implemented: scope-aware analysis, widget-method (`frame:SetFoo()`) validati
 
 Canvas caveats: fonts are system fonts, game textures are placeholders, button visuals are flat. XML output gives every element the global name `<Scene>_<name>`; top-level textures/font strings exist only in the Lua output. The generated code was syntax-checked with `luac`, **not executed in a game client**.
 
-## Preview/simulation coverage
-None yet (Phase 3). The simulator, when built, will not claim to implement the WoW runtime; see ROADMAP.
+## Preview/simulation coverage (Phase 3)
 
-## Real-world check
-Against the Tempus checkout (78 TOC files, 127 Lua files): 0 errors; 210 API call sites checked, 2 unverified (`LibStub`, `GetMouseFocus`), 10 feature-detected legacy calls correctly downgraded, 4 secret-value notes.
+**Simulated (unit state → bound widgets):** unit health, power (mana/rage/energy), casts (progress, interruptible vs not, interrupt + Kick cooldown), buffs/debuffs (apply, refresh, stack, expire), combat flag, deaths, target respawn, party (1–4) and raid (1–40) rosters with tank/healer/damage roles and class colours. Events emitted to the log: `PLAYER_ENTERING_WORLD`, `GROUP_ROSTER_UPDATE`, `PLAYER_REGEN_DISABLED/ENABLED`, `PLAYER_TARGET_CHANGED`, `UNIT_HEALTH`, `UNIT_POWER_UPDATE`, `UNIT_AURA`, `UNIT_SPELLCAST_START/STOP/SUCCEEDED/INTERRUPTED`, `SPELL_UPDATE_COOLDOWN`, `UNIT_DIED`, `PLAYER_DEAD`, `PARTY_KILL`.
+
+**Binding vocabulary:** see `SUPPORT` in `src/lib/sim/bind.ts` (also listed in the Simulate tab). Anything else is rejected with `preview.unknown-stat`; kind mismatches give `preview.unsupported-binding`; missing units `preview.unit-missing`; nested repeaters `preview.nested-repeat`.
+
+**Not simulated:** execution of addon Lua (no sandbox runtime yet), real fonts/textures/atlases/models, protected actions, taint, secure templates, click handling, combat log, threat, range/LoS, loot, chat, tooltips, Edit Mode, SavedVariables. The simulation is a stylised model: damage/heal amounts, timings and rosters are invented by the scenario, not derived from game data.
+
+**Secret values:** health text bindings are flagged in combat. *Measured* (kit) for `player`/`target`; *inferred* for other units. Power text is not flagged because there is no evidence either way.
+
+### Tempus Unit Frame template: fidelity statement
+Source: `Modules/UnitFrames/UnitFrames.lua` and `Core/Style.lua` in the Tempus checkout at commit `7bac2c2`.
+
+| Reproduced (read from source) | Not reproduced |
+|---|---|
+| 230×44 frame; panel fill `{0.06, 0.068, 0.085, 0.92}` | 1px black border, 3px shadow, inner border (`S.Backdrop`) |
+| Health bar `TOPLEFT/TOPRIGHT`, height `44 − 9 − 1 = 34` | Smooth bar animation, "lag bar" (recent-damage drain) |
+| Power bar `BOTTOMLEFT/BOTTOMRIGHT`, 9px; 1px black separator 1px below health | Low-health red glow + pulse (the `lowHealth` binding exists but the template does not use Tempus's glow) |
+| Name `LEFT+5`, health text `RIGHT−5`, name's right edge anchored 6px left of health text, power text `RIGHT−5` | Portrait (2D/3D/overlay), class power pips, auras/castbar attached to the frame |
+| Class-coloured health with background at 18% of the class colour; power colour `{0.3,0.5,0.95}` | Health colour modes DARK / REACTION / GRADIENT; tapped/offline states; real fonts and bar texture |
+| Default player position `CENTER −300,−180` | Secure unit button, click-casting, tooltips |
+
+It is a faithful *layout and colour* model of one component, not a recreation of the Tempus runtime. Tempus's own use of `issecret`, `pcall` and `UnitHealthPercent(…, curve)` confirms the secret-value handling the preview warns about.

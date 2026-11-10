@@ -2,6 +2,7 @@
   import { designer as d } from "../lib/designer.svelte";
   import { edgeTargets, right, snapAxis, setRect, solve, top, uiSize, type Rect } from "../lib/layout";
   import { isContainer, LAYERS, STRATA, type SceneNode } from "../lib/scene";
+  import { expandEntries, resolve, type Entry } from "../lib/sim/bind";
 
   let viewport: HTMLDivElement;
   const ui = $derived(uiSize(d.scene));
@@ -16,7 +17,8 @@
   $effect(() => { if (!viewport) return; const ro = new ResizeObserver(refit); ro.observe(viewport); return () => ro.disconnect(); });
 
   // ---- z-order: strata, frame level, then region layer, then creation order ----
-  interface Item { id: string; part: "bg" | "node"; z: number }
+  interface Item { entry: Entry; z: number }
+  const entries = $derived(expandEntries(d.scene, d.solved.rects, d.preview, d.scenario));
   const items = $derived.by(() => {
     const eff = new Map<string, { strata: number; level: number }>();
     const calc = (n: SceneNode): { strata: number; level: number } => {
@@ -25,18 +27,16 @@
       const pe = p ? calc(p) : { strata: 0, level: 0 };
       const isRegion = n.kind === "texture" || n.kind === "fontstring";
       const own = STRATA.indexOf(n.strata);
-      const v = isRegion ? pe : { strata: own > 2 || own < 2 ? own : pe.strata, level: (p ? pe.level + 1 : 0) + n.level };
+      const v = isRegion ? pe : { strata: own !== 2 ? own : pe.strata, level: (p ? pe.level + 1 : 0) + n.level };
       eff.set(n.id, v); return v;
     };
-    const keyed: { id: string; part: "bg" | "node"; key: number[] }[] = [];
-    d.scene.order.forEach((id, idx) => {
-      const n = d.scene.nodes[id]; if (!n) return;
-      const e = calc(n);
-      if (n.kind === "texture" || n.kind === "fontstring") keyed.push({ id, part: "node", key: [e.strata, e.level, 1, LAYERS.indexOf(n.layer), idx] });
-      else keyed.push({ id, part: "node", key: [e.strata, e.level, 0, 0, idx] });
+    const keyed = entries.map((entry, idx) => {
+      const n = d.scene.nodes[entry.id]!; const e = calc(n);
+      const region = n.kind === "texture" || n.kind === "fontstring";
+      return { entry, key: [e.strata, e.level, region ? 1 : 0, region ? LAYERS.indexOf(n.layer) : 0, idx] };
     });
     keyed.sort((a, b) => { for (let i = 0; i < 5; i++) { const x = a.key[i]! - b.key[i]!; if (x) return x; } return 0; });
-    return keyed.map((k, i): Item => ({ id: k.id, part: k.part, z: i + 1 }));
+    return keyed.map((k, i): Item => ({ entry: k.entry, z: i + 1 }));
   });
 
   const css = (c: number[]) => `rgba(${Math.round(c[0]! * 255)},${Math.round(c[1]! * 255)},${Math.round(c[2]! * 255)},${c[3]})`;
@@ -146,22 +146,31 @@
 <div class="vp" bind:this={viewport} onwheel={wheel} onpointerdown={() => (d.selection = null)} role="presentation">
   <div class="screen" style="width:{px(ui.w)};height:{px(ui.h)};{d.showGrid && d.grid > 0 && d.zoom * d.grid >= 4 ? `background-image:linear-gradient(#ffffff0d 1px,transparent 1px),linear-gradient(90deg,#ffffff0d 1px,transparent 1px);background-size:${d.grid * d.zoom}px ${d.grid * d.zoom}px;` : ''}">
     <div class="uip">UIParent {Math.round(ui.w)}×{Math.round(ui.h)}</div>
-    {#each items as it (it.id)}
-      {@const n = d.scene.nodes[it.id]}
-      {@const r = d.solved.rects.get(it.id)}
-      {#if n && r}
-        <div class="el {n.kind}" class:sel={d.selection === n.id} class:hid={n.hidden} class:err={d.solved.errors.has(n.id)}
-          style="left:{px(r.l)};bottom:{px(r.b)};width:{px(r.w)};height:{px(r.h)};z-index:{it.z};opacity:{n.hidden ? 0.3 : n.alpha};
-          {n.kind === 'fontstring' ? '' : `background:${n.kind === 'texture' && n.texture ? 'repeating-conic-gradient(#2a2f40 0% 25%, #1d2130 0% 50%) 50% / 12px 12px' : css(n.color)};`}"
-          onpointerdown={(e) => down(e, n.id)} role="button" tabindex="-1" title="{n.name} · {Math.round(r.w)}×{Math.round(r.h)} @ {Math.round(r.l)},{Math.round(r.b)}">
+    {#if d.preview}<div class="live" class:on={d.playing}>{d.playing ? "● LIVE" : "❚❚ PAUSED"} · {d.scenario.name} · {(d.simVersion, (d.sim.state.t / 1000).toFixed(1))}s{(d.simVersion, d.sim.state.inCombat) ? " · IN COMBAT" : ""}</div>{/if}
+    {#each items as it (it.entry.key)}
+      {@const e = it.entry}
+      {@const n = d.scene.nodes[e.id]}
+      {@const r = e.rect}
+      {@const rs = (d.simVersion, d.preview && n?.bind ? resolve(d.sim.state, n.bind, e.unit) : null)}
+      {#if n}
+        {@const live = e.copy === 0 && !e.dim}
+        {@const gone = !!rs && !rs.visible}
+        {@const bar = rs?.barColor ?? n.barColor}
+        {@const bg = rs?.bgColor ?? n.color}
+        {@const fill = rs?.fill ?? Math.max(0, Math.min(1, (n.value - n.min) / ((n.max - n.min) || 1)))}
+        <div class="el {n.kind}" class:sel={d.selection === n.id && e.copy === 0} class:hid={n.hidden} class:err={d.solved.errors.has(n.id)} class:copy={e.copy > 0 || e.dim}
+          style="left:{px(r.l)};bottom:{px(r.b)};width:{px(r.w)};height:{px(r.h)};z-index:{it.z};opacity:{gone ? 0 : e.dim ? 0.3 : n.hidden ? 0.3 : n.alpha};
+          {n.kind === 'fontstring' ? '' : `background:${n.kind === 'texture' && n.texture && !rs?.tint ? 'repeating-conic-gradient(#2a2f40 0% 25%, #1d2130 0% 50%) 50% / 12px 12px' : css(rs?.tint ?? bg)};`}"
+          onpointerdown={(ev) => (live || !d.preview) && down(ev, n.id)} role="button" tabindex="-1" title="{n.name}{e.unit ? ` · ${e.unit}` : ''} · {Math.round(r.w)}×{Math.round(r.h)} @ {Math.round(r.l)},{Math.round(r.b)}">
           {#if n.kind === "statusbar"}
-            <div class="fill" style="width:{Math.max(0, Math.min(1, (n.value - n.min) / ((n.max - n.min) || 1))) * 100}%;background:{css(n.barColor)}"></div>
+            <div class="fill" style="width:{fill * 100}%;background:{css(bar)}"></div>
           {/if}
           {#if n.kind === "button"}<span class="lbl" style="font-size:{px(n.fontSize)};color:#fff">{n.text}</span>{/if}
           {#if n.kind === "fontstring"}
-            <span class="txt" style="font-size:{px(n.fontSize)};color:{css(n.color)};text-align:{n.justify.toLowerCase()};{n.outline ? 'text-shadow:0 0 2px #000,0 0 2px #000,1px 1px 0 #000;' : ''}">{n.text}</span>
+            <span class="txt" style="font-size:{px(n.fontSize)};color:{css(n.color)};text-align:{n.justify.toLowerCase()};justify-content:{n.justify === 'RIGHT' ? 'flex-end' : n.justify === 'CENTER' ? 'center' : 'flex-start'};{n.outline ? 'text-shadow:0 0 2px #000,0 0 2px #000,1px 1px 0 #000;' : ''}">{rs?.text ?? n.text}</span>
+            {#if rs?.secret}<i class="secret" title={rs.secret === "measured" ? "Secret in combat on Forever (measured for this unit). Needs a game test." : "Likely secret in combat on Forever (measured only for player/target). Needs a game test."}></i>{/if}
           {/if}
-          {#if n.kind === "texture" && n.texture}<span class="tx">{n.texture.split(/[\\/]/).pop()}</span>{/if}
+          {#if n.kind === "texture" && n.texture && !rs?.tint}<span class="tx">{n.texture.split(/[\\/]/).pop()}</span>{/if}
         </div>
       {/if}
     {/each}
@@ -189,9 +198,12 @@
   .el.sel { outline: 1px solid var(--cyan); }
   .el.err { outline: 1px dashed var(--red); }
   .el.hid { outline: 1px dashed #566078; }
+  .el.copy { cursor: default; } .el.copy:hover { outline: none; }
+  .secret { position: absolute; right: 1px; top: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 4px var(--amber); pointer-events: none; }
   .fill { position: absolute; left: 0; top: 0; bottom: 0; pointer-events: none; }
   .lbl, .txt, .tx { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; overflow: hidden; white-space: nowrap; font-family: Georgia, "Times New Roman", serif; }
   .txt { justify-content: flex-start; } .tx { font: 10px var(--mono); color: #6f7893; }
+  .live { position: absolute; right: 8px; top: 6px; font: 10.5px var(--mono); color: #6f7893; z-index: 9800; pointer-events: none; } .live.on { color: var(--green); }
   .selbox { position: absolute; z-index: 9000; pointer-events: none; box-shadow: 0 0 0 1px var(--cyan); }
   .h { position: absolute; width: 9px; height: 9px; margin: -4.5px; background: #0b0c10; border: 1.5px solid var(--cyan); border-radius: 2px; pointer-events: auto; padding: 0; }
   .h:hover { background: var(--cyan); }

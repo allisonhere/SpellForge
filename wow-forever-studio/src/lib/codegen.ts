@@ -34,6 +34,8 @@ export function generate(scene: Scene): Generated {
   const warnings: string[] = [];
   const solved = solve(scene);
   for (const [id, msg] of solved.errors) warnings.push(`${scene.nodes[id]?.name ?? id}: ${msg}`);
+  const sim = Object.values(scene.nodes).filter((n) => n.bind || n.repeat);
+  if (sim.length) warnings.push(`${sim.length} element(s) have preview-only bindings/repeaters; these are not emitted. Wire real events and unit APIs in your own code.`);
   const base = sanitizeName(scene.name);
   return { lua: genLua(scene, base, warnings), xml: genXml(scene, base), warnings, luaPath: `Generated/${base}.lua`, xmlPath: `Generated/${base}.xml` };
 }

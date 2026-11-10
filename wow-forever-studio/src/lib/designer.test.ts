@@ -119,7 +119,7 @@ describe("code generation", () => {
     try { execFileSync("luac", ["-p", f], { stdio: "pipe" }); } catch (e: any) { if (e.code === "ENOENT") return; throw new Error(String(e.stderr)); }
   });
   it("emits well-formed-looking XML with named anchors", () => {
-    const x = generate(sample()).xml; expect(x).toContain('<Anchor point="TOPLEFT" relativeTo="Demo_UI_Health" relativePoint="BOTTOMLEFT">');
+    const x = generate(sample()).xml; expect(x).toMatch(/<Anchor point="TOPLEFT" relativeTo="Demo_UI_Health\d*" relativePoint="BOTTOMLEFT">/);
     const opens = (x.match(/<(Frame|StatusBar|Button|Layers|Layer|Anchors)[ >]/g) ?? []).length, closes = (x.match(/<\/(Frame|StatusBar|Button|Layers|Layer|Anchors)>/g) ?? []).length;
     expect(opens).toBe(closes);
   });

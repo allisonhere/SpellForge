@@ -2,13 +2,16 @@
   import { store } from "../lib/store.svelte";
   import { openFile } from "../lib/actions";
   import type { Diagnostic, Severity } from "../lib/types";
+  import { designer } from "../lib/designer.svelte";
+  let evFilter = $state("");
+  const evs = $derived((designer.simVersion, designer.sim.state.log.filter((e) => !evFilter || (e.name + " " + e.args).toLowerCase().includes(evFilter.toLowerCase())).slice(-250).reverse()));
 
   let filter = $state<Record<Severity, boolean>>({ error: true, warning: true, info: true, hint: false });
   let onlyGame = $state(false);
   const rows = $derived(store.allDiagnostics.filter((d) => filter[d.severity] && (!onlyGame || d.evidence === "needs-game-test")));
   const sym: Record<Severity, string> = { error: "✖", warning: "▲", info: "●", hint: "○" };
   const conf: Record<string, string> = { certain: "certain", sourced: "sourced", "snapshot-absence": "snapshot absence", heuristic: "heuristic" };
-  const tabs = $derived<[string, string][]>([["problems", `Problems ${store.allDiagnostics.filter((d) => d.severity === "error" || d.severity === "warning").length}`], ["output", "Output"], ["results", "Results"]]);
+  const tabs = $derived<[string, string][]>([["problems", `Problems ${store.allDiagnostics.filter((d) => d.severity === "error" || d.severity === "warning").length}`], ["output", "Output"], ["results", "Results"], ["sim", "Simulation"]]);
   function open(d: Diagnostic) { if (d.file) void openFile(d.file, d.line || 1, d.col || 1); }
   const fmt = (t: number) => new Date(t).toLocaleTimeString([], { hour12: false });
 </script>
@@ -45,6 +48,9 @@
     {/if}
   {:else if store.ui.bottomTab === "output"}
     <div class="out mono">{#each store.log as l (l.t + l.text)}<div class={l.level}><span class="faint">{fmt(l.t)}</span> {l.text}</div>{/each}</div>
+  {:else if store.ui.bottomTab === "sim"}
+    <div class="scope faint row"><span>Simulated events · {designer.scenario.name} · t={(designer.simVersion, (designer.sim.state.t / 1000).toFixed(1))}s · deterministic (seed {designer.scenario.seed})</span><input class="text flt" placeholder="filter, e.g. UNIT_AURA" bind:value={evFilter} /></div>
+    <div class="out mono">{#each evs as e, i (i + e.t + e.name + e.args)}<div><span class="faint">{(e.t / 1000).toFixed(1).padStart(6)}s</span> <span class="evn">{e.name}</span> <span class="faint">{e.args}</span></div>{/each}</div>
   {:else}
     {#if store.hits}
       <div class="scope faint">{store.hits.title} · {store.hits.items.length}{store.hits.items.length >= 500 ? "+ (truncated)" : ""} results</div>
@@ -65,5 +71,6 @@
   .s { width: 14px; flex: none; font-size: 11px; } .s.error { color: var(--red); } .s.warning { color: var(--amber); } .s.info { color: var(--blue); } .s.hint { color: var(--faint); }
   .m { flex: 1 1 0; min-width: 260px; }
   .meta { display: flex; gap: 8px; align-items: center; flex: 1 0 100%; padding-left: 24px; font-size: 11px; flex-wrap: wrap; }
+  .flt { width: 200px; padding: 2px 8px; } .evn { color: var(--cyan); }
   .out { padding: 8px 12px; } .out .ok { color: var(--green); } .out .warn { color: var(--amber); } .out .error { color: var(--red); }
 </style>

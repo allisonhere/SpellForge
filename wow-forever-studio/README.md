@@ -3,8 +3,20 @@
 An **offline-first desktop IDE for World of Warcraft: Forever addons** (Tauri 2 + Svelte 5 + Rust, Monaco bundled locally).
 No accounts, no telemetry, no CDN, no online API. After the one-time dependency fetch, everything runs without a network.
 
-> **Status: Phases 1 (IDE foundation) and 2 (visual designer) are implemented. Phases 3–4 (simulation, local AI) are not.**
+> **Status: Phases 1 (IDE foundation), 2 (visual designer) and 3 (offline simulation) are implemented. Phase 4 (local AI, error-log import, companion addon) is not.**
 > See [docs/ROADMAP.md](docs/ROADMAP.md) and [Limitations](#limitations).
+
+## Simulation preview (Phase 3) — the **Preview** button in the Design tab
+
+A deterministic, seeded simulation of *unit state* drives the widgets you design. Same scenario + seed ⇒ identical run, every time (tested).
+
+* **Scenarios (editable, saved in the scene file):** Idle · Solo combat · Target casting (with interrupts and a Kick cooldown) · Five-player party · Forty-player raid · Low-health emergency · Buff/debuff activity. Every parameter (seed, group size, damage/heal rates, cast timing, aura churn, player health/power…) is editable in the **Simulate** tab; duplicate a scenario to make your own.
+* **Bindings:** drive a status bar (health, power, cast progress, aura time), text (name, level, health %/current, power, spell name, cast time, stacks) or texture/frame (aura icon, low-health glow, show-if-exists/casting/in-combat) from a unit (`player`, `target`, `party1–4`, `raid1–40`, or `$unit`).
+* **Group & raid layouts:** mark a frame as a *repeater*; Preview renders it as a grid of party (×4) or raid (×40) members with `$unit` bindings resolved per copy.
+* **Controls:** play/pause/step/reset, 0.25×–8× speed, UI scale and resolution changes apply live. The **Simulation** tab in the bottom dock logs every simulated event (`UNIT_HEALTH`, `UNIT_AURA`, `UNIT_SPELLCAST_START`, `PLAYER_REGEN_DISABLED`, …) with a filter.
+* **Tempus Unit Frame template:** a 230×44 unit frame built from the geometry in Tempus's own `UnitFrames.lua` (see [docs/COVERAGE.md](docs/COVERAGE.md) for exactly what is and is not reproduced).
+
+**What this is *not*:** it does **not** run your addon's Lua, is **not** the WoW runtime, and does not simulate textures/fonts/models, protected actions, taint, the combat log, threat, range, tooltips or Edit Mode. Bindings and repeaters are preview-only and are never written into generated code. In combat, health text in the preview is flagged with an amber dot because health values are *secret* in the real client (measured by forever-addon-kit for player/target): those findings say **needs game test**. Unsupported or mismatched bindings are reported in the Problems panel, never silently ignored.
 
 ## Visual designer (Phase 2) — the **Design** tab
 
@@ -64,7 +76,7 @@ Tempus is only ever read; the test asserts the source tree is byte-for-byte unch
 
 ## Limitations
 
-See [docs/COVERAGE.md](docs/COVERAGE.md). In short: no simulator or AI assistant yet; the designer has no multi-select, copy/paste between scenes, or custom font/texture previews, and its canvas interactions (drag/resize/snap) are covered by unit tests of the underlying maths but not by automated UI tests; no Lua Language Server integration yet (the built-in parser/index is used); configurable shortcuts are not yet user-editable; no automated UI-interaction tests (Rust + pure-logic tests only); Windows is designed for (path handling, installs, `windows_subsystem`) but untested.
+See [docs/COVERAGE.md](docs/COVERAGE.md). In short: no AI assistant, error-log import or companion addon yet; the simulator models unit state only (no Lua execution); the designer has no multi-select, copy/paste between scenes, or custom font/texture previews, and its canvas interactions (drag/resize/snap) are covered by unit tests of the underlying maths but not by automated UI tests; no Lua Language Server integration yet (the built-in parser/index is used); configurable shortcuts are not yet user-editable; no automated UI-interaction tests (Rust + pure-logic tests only); Windows is designed for (path handling, installs, `windows_subsystem`) but untested.
 
 ## Docs
 

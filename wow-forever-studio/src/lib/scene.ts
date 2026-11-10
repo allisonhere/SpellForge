@@ -39,7 +39,22 @@ export interface SceneNode {
   max: number;
   value: number;
   barColor: Rgba;
+  bind?: Binding;
+  repeat?: Repeat;
 }
+
+/** Preview-only data binding: drives a node from simulated unit state. Never emitted into generated game code. */
+export interface Binding {
+  /** `$unit` resolves to the unit of the enclosing repeat copy (or `player` outside one). */
+  unit: string;
+  stat: string;
+  slot?: number;
+  aura?: "buff" | "debuff";
+  threshold?: number;
+  colorBy?: "class" | "threshold" | "none";
+}
+/** Preview-only repeater for group/raid layouts: renders the node's subtree once per unit in a grid. */
+export interface Repeat { kind: "party" | "raid"; count: number; columns: number; gapX: number; gapY: number }
 
 export interface Template { id: string; name: string; builtIn?: boolean; nodes: SceneNode[]; rootId: string }
 
@@ -52,6 +67,8 @@ export interface Scene {
   order: string[];
   nodes: Record<string, SceneNode>;
   templates: Template[];
+  /** Per-scene scenario overrides/additions (editable in the Simulation tab). */
+  scenarios?: import("./sim/types").Scenario[];
 }
 
 export const CONTAINERS: Kind[] = ["frame", "button", "statusbar"];

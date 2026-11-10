@@ -12,6 +12,8 @@ class Store {
   active = $state<string | null>(null);
   report = $state<Report | null>(null);
   bufferDiags = $state<Record<string, Diagnostic[]>>({});
+  /** Preview/simulation findings from the designer (source "preview"). */
+  designDiags = $state<Diagnostic[]>([]);
   symbols = $state<Symbol[]>([]);
   hits = $state<{ title: string; items: Hit[] } | null>(null);
   log = $state<LogLine[]>([]);
@@ -22,11 +24,13 @@ class Store {
   apiOrigin = $state("bundled");
   notes = $state.raw<CompatNote[]>([]);
   selectedApi = $state<ApiHit | null>(null);
-  ui = $state<Required<Omit<UiState, "cursor" | "openFiles" | "activeFile" | "view">>>({
+  ui = $state<Required<Omit<UiState, "cursor" | "openFiles" | "activeFile" | "view" | "preview" | "scenarioId" | "autoplay">>>({
     leftWidth: 270, rightWidth: 320, bottomHeight: 220, showLeft: true, showRight: true, showBottom: true,
     leftTab: "explorer", rightTab: "toc", bottomTab: "problems",
   });
   cursor: Record<string, { line: number; col: number }> = {};
+  /** Designer view state that is persisted with the workspace. */
+  extra = $state<{ preview?: boolean; scenarioId?: string; autoplay?: number }>({});
   modal = $state<null | "settings" | "deploy" | "new" | "palette">(null);
   palettePrefix = $state("");
   busy = $state("");
@@ -47,6 +51,7 @@ class Store {
     // A live buffer check covers lua/api/wow-lint findings for that file, so drop the stale saved copies. Structural findings (toc, asset, project) only come from the full report.
     for (const d of fromReport) if (!(d.file && d.file in this.bufferDiags && ["lua", "api", "wow-lint"].includes(d.source))) out.push(d);
     for (const ds of Object.values(this.bufferDiags)) out.push(...ds);
+    out.push(...this.designDiags);
     return out;
   });
   counts = $derived({
@@ -79,7 +84,7 @@ class Store {
   persist() {
     clearTimeout(this.persistTimer);
     this.persistTimer = setTimeout(() => {
-      const ui: UiState = { ...$state.snapshot(this.ui), view: this.view, openFiles: this.tabs.map((t) => t.path), activeFile: this.active, cursor: this.cursor };
+      const ui: UiState = { ...$state.snapshot(this.ui), view: this.view, preview: this.extra.preview, scenarioId: this.extra.scenarioId, openFiles: this.tabs.map((t) => t.path), activeFile: this.active, cursor: this.cursor };
       ipc.saveUi(ui).catch(() => {});
     }, 300);
   }

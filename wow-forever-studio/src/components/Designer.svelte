@@ -1,18 +1,38 @@
 <script lang="ts">
   import { designer as d, RESOLUTIONS } from "../lib/designer.svelte";
+  import { onMount } from "svelte";
   import { store } from "../lib/store.svelte";
   import { KINDS } from "../lib/scene";
   import Canvas from "./Canvas.svelte";
   import Inspector from "./Inspector.svelte";
   import Hierarchy from "./Hierarchy.svelte";
+  import ScenarioPanel from "./ScenarioPanel.svelte";
 
-  let leftTab = $state<"layers" | "add">("add");
+  let leftTab = $state<"layers" | "add" | "sim">("add");
   let newName = $state("");
   const resKey = $derived(`${d.scene.resolution.w}x${d.scene.resolution.h}`);
   const kindLabel: Record<string, string> = { frame: "Frame", button: "Button", texture: "Texture", fontstring: "Text", statusbar: "Status bar" };
   const kindHint: Record<string, string> = { frame: "Container with a background", button: "Clickable frame with label", texture: "Solid color or texture file", fontstring: "Font string", statusbar: "Health / power / progress / cast bar" };
   function setRes(v: string) { const [w, h] = v.split("x").map(Number); if (w && h) d.setResolution(w, h); }
   $effect(() => { const f = d.sceneFiles; if (store.project && !d.path && f.length) void d.load(f[0]!); });
+  let showLeft = $state(true), showRight = $state(true);
+  onMount(() => {
+    // narrow windows: give the canvas the space; panels stay one click away
+    if (window.innerWidth < 1250) { showLeft = false; showRight = false; } else if (window.innerWidth < 1500) showRight = false;
+    if (store.extra.scenarioId) d.scenarioId = store.extra.scenarioId;
+    if (store.extra.preview) d.preview = true;
+    if (store.extra.autoplay) { d.speed = store.extra.autoplay; d.play(); store.extra.autoplay = undefined; }
+  });
+  $effect(() => { store.extra.preview = d.preview; store.extra.scenarioId = d.scenarioId; store.persist(); });
+  // reset the run whenever the active scenario (or its parameters) change
+  $effect(() => { void d.scenario; d.resetSim(); });
+  // surface preview findings in the global Problems panel
+  $effect(() => {
+    const file = d.path ?? "Design";
+    store.designDiags = d.previewIssues.map((i) => ({ severity: i.severity, code: i.code, message: i.message, file, line: 0, col: 0, source: "preview", confidence: i.confidence, evidence: i.evidence }));
+    return () => { store.designDiags = []; };
+  });
+  $effect(() => () => d.pause());
   const lines = $derived(d.generated.lua.split("\n"));
 </script>
 
@@ -39,14 +59,19 @@
     <label class="chk"><input type="checkbox" bind:checked={d.snap} /> Snap</label>
     <label class="chk"><input type="checkbox" bind:checked={d.showGrid} /> Grid <input class="text g" type="number" min="1" max="128" bind:value={d.grid} /></label>
     <span class="grow"></span>
+    <button class="btn" class:primary={d.preview} onclick={() => d.togglePreview()} title="Run the offline simulation on the canvas">{d.preview ? "Preview on" : "Preview"}</button>
+    {#if d.preview}<button class="btn" onclick={() => (d.playing ? d.pause() : d.play())}>{d.playing ? "⏸" : "▶"}</button>
+      <select class="text sel2" bind:value={d.scenarioId} title="Scenario">{#each d.scenarios as sc (sc.id)}<option value={sc.id}>{sc.name}</option>{/each}</select>{/if}
+    <button class="btn ghost" class:on={showLeft} onclick={() => (showLeft = !showLeft)} title="Toggle the Add / Hierarchy / Simulate panel">◧</button>
+    <button class="btn ghost" class:on={showRight} onclick={() => (showRight = !showRight)} title="Toggle the property inspector">◨</button>
     <button class="btn ghost" class:on={d.showCode} onclick={() => (d.showCode = !d.showCode)}>Lua preview</button>
     <button class="btn" onclick={() => d.save()} disabled={!d.dirty && !!d.path}>Save{d.dirty ? " ●" : ""}</button>
     <button class="btn primary" onclick={() => d.generateFiles()}>Generate Lua + XML</button>
   </div>
 
   <div class="body">
-    <aside class="left">
-      <div class="panel-h"><button class="tabbtn" class:on={leftTab === "add"} onclick={() => (leftTab = "add")}>Add</button><button class="tabbtn" class:on={leftTab === "layers"} onclick={() => (leftTab = "layers")}>Hierarchy</button></div>
+    {#if showLeft}<aside class="left">
+      <div class="panel-h"><button class="tabbtn" class:on={leftTab === "add"} onclick={() => (leftTab = "add")}>Add</button><button class="tabbtn" class:on={leftTab === "layers"} onclick={() => (leftTab = "layers")}>Hierarchy</button><button class="tabbtn" class:on={leftTab === "sim"} onclick={() => (leftTab = "sim")}>Simulate</button></div>
       {#if leftTab === "add"}
         <div class="scroll pal">
           <h4>Elements</h4>
@@ -55,8 +80,8 @@
           {#each d.templates as t (t.id)}<button class="pi" onclick={() => d.addTemplate(t)}><b>{t.name}</b><span class="faint">{t.builtIn ? "built-in" : "scene"} · {t.nodes.length} elements</span></button>{/each}
           <p class="faint small">New elements go inside the selected frame. Drag elements in the Hierarchy tab to re-parent them.</p>
         </div>
-      {:else}<Hierarchy />{/if}
-    </aside>
+      {:else if leftTab === "layers"}<Hierarchy />{:else}<ScenarioPanel />{/if}
+    </aside>{/if}
     <main class="center">
       <Canvas />
       {#if d.showCode}
@@ -67,9 +92,9 @@
         </div>
       {/if}
     </main>
-    <aside class="right"><div class="panel-h"><span class="tabbtn on">Properties</span></div><Inspector /></aside>
+    {#if showRight}<aside class="right"><div class="panel-h"><span class="tabbtn on">Properties</span></div><Inspector /></aside>{/if}
   </div>
-  <div class="note">Approximate canvas: positions, anchors, sizes and layering follow the client's rules; fonts and game textures are placeholders. Behaviour is not simulated.</div>
+  <div class="note">Approximate canvas: positions, anchors, sizes and layering follow the client's rules; fonts and game textures are placeholders. Preview simulates unit state for bound widgets only: addon Lua is not run and this is not the WoW runtime.</div>
 </div>
 
 <style>
@@ -80,7 +105,7 @@
   .chk { display: flex; gap: 6px; align-items: center; color: var(--dim); font-size: 12px; } input.g { width: 54px; padding: 2px 6px; }
   .btn.on { color: var(--cyan); }
   .body { display: flex; flex: 1; min-height: 0; }
-  .left { width: 230px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--border); min-height: 0; }
+  .left { width: 250px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--border); min-height: 0; }
   .right { width: 310px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--border); min-height: 0; }
   .center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   .pal { padding: 6px 8px; flex: 1; } .pal h4 { margin: 10px 0 6px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
