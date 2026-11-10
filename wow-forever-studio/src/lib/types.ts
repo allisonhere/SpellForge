@@ -20,7 +20,7 @@ export interface Toc {
   savedVariables: string[]; savedVariablesPerCharacter: string[]; dependencies: string[]; optionalDeps: string[];
   loadOnDemand: boolean; icon: string | null; fields: Record<string, string>; entries: TocEntry[];
 }
-export interface ProjectInfo { root: string; name: string; addonName: string; tocs: Toc[]; mainToc: string | null }
+export interface ProjectInfo { nestedAddons: string[]; root: string; name: string; addonName: string; tocs: Toc[]; mainToc: string | null }
 export interface FileEntry { path: string; isDir: boolean; size: number; isSymlink: boolean }
 export interface Stats {
   luaFiles: number; xmlFiles: number; loadedFiles: number; unlistedFiles: number; symbols: number; apiCallsChecked: number; apiUnverified: number;

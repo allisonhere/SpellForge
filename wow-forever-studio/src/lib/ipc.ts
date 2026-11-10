@@ -7,6 +7,7 @@ export const ipc = {
   saveUi: (ui: UiState) => invoke<void>("save_ui", { ui }),
   pickProject: () => invoke<ProjectInfo | null>("pick_project"),
   openRecent: (path: string) => invoke<ProjectInfo>("open_recent", { path }),
+  openNested: (path: string) => invoke<ProjectInfo>("open_nested", { path }),
   projectInfo: () => invoke<ProjectInfo>("project_info"),
   projectFiles: () => invoke<FileEntry[]>("project_files"),
   readFile: (path: string) => invoke<{ path: string; content: string; size: number }>("read_file", { path }),

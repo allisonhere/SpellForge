@@ -22,6 +22,8 @@ pub struct FileEntry {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectInfo {
+    /// Immediate subfolders that contain a .toc (shown when the opened folder itself has none).
+    pub nested_addons: Vec<String>,
     pub root: String,
     pub name: String,
     pub addon_name: String,
@@ -78,12 +80,28 @@ pub fn addon_name_from_toc(file: &str) -> String {
     stem.to_string()
 }
 
+/// Subfolders (up to two levels deep) holding a .toc, for the case where the user picked a parent folder.
+pub fn find_nested(root: &Path) -> Vec<String> {
+    let mut out = vec![];
+    for e in WalkDir::new(root).max_depth(3).follow_links(false).sort_by_file_name().into_iter().filter_entry(|e| e.depth() == 0 || !(e.file_type().is_dir() && SKIP_DIRS.contains(&e.file_name().to_string_lossy().as_ref()))).filter_map(|e| e.ok()) {
+        if e.depth() >= 2 && e.file_type().is_file() && e.file_name().to_string_lossy().to_lowercase().ends_with(".toc") {
+            if let Some(parent) = e.path().parent() {
+                let rel = to_rel_string(root, parent);
+                if !out.contains(&rel) { out.push(rel); }
+            }
+        }
+    }
+    out.truncate(60);
+    out
+}
+
 pub fn open_info(root: &Path) -> ProjectInfo {
     let tocs = load_tocs(root);
     let folder = root.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
     let main = tocs.iter().find(|t| addon_name_from_toc(&t.file) == folder && !t.file.contains('_')).or_else(|| tocs.iter().min_by_key(|t| t.file.len())).map(|t| t.file.clone());
     let addon_name = main.as_deref().map(addon_name_from_toc).unwrap_or_else(|| folder.clone());
-    ProjectInfo { root: root.display().to_string(), name: folder, addon_name, tocs, main_toc: main }
+    let nested_addons = if tocs.is_empty() { find_nested(root) } else { vec![] };
+    ProjectInfo { nested_addons, root: root.display().to_string(), name: folder, addon_name, tocs, main_toc: main }
 }
 
 /// Find the on-disk case-exact name of `rel` under root, case-insensitively. Returns (exists_exact, actual_if_case_differs).
@@ -167,6 +185,8 @@ pub const SCOPE_NOTE: &str = "Static analysis only: syntax, TOC/file/asset struc
 
 /// Lints that operate on one Lua file's analysis. Shared by project validation and live buffer checks.
 pub fn lint_lua(file: &str, src: &str, api: &ApiIndex, notes: &Notes, project_globals: &BTreeSet<String>, stats: Option<&mut Stats>) -> (Vec<Diagnostic>, Vec<Symbol>, lua::Analysis) {
+    // The client accepts a UTF-8 byte-order mark; do not report it as a syntax error.
+    let src = src.strip_prefix('\u{feff}').unwrap_or(src);
     let mut diags = lua::syntax_check(file, src);
     let toks = lua::tokenize(src);
     let a = lua::analyze(file, &toks);
@@ -331,7 +351,7 @@ pub fn validate(root: &Path, api: &ApiIndex, notes: &Notes) -> Report {
     let mut project_globals: BTreeSet<String> = BTreeSet::new();
     for f in &lua_paths {
         if let Some(src) = read_text(&root.join(&f.path)) {
-            let a = lua::analyze(&f.path, &lua::tokenize(&src));
+            let a = lua::analyze(&f.path, &lua::tokenize(src.strip_prefix('\u{feff}').unwrap_or(&src)));
             project_globals.extend(a.globals_defined);
             sources.insert(f.path.clone(), src);
         }
@@ -358,7 +378,7 @@ pub fn validate(root: &Path, api: &ApiIndex, notes: &Notes) -> Report {
         all_symbols.extend(syms);
     }
     for f in &lua_paths {
-        if !loaded.contains(&f.path) && !f.path.to_lowercase().starts_with("tests/") && !f.path.to_lowercase().starts_with("tools/") {
+        if !info.tocs.is_empty() && !loaded.contains(&f.path) && !f.path.to_lowercase().starts_with("tests/") && !f.path.to_lowercase().starts_with("tools/") {
             diags.push(Diagnostic::new(Severity::Info, "project.unlisted-lua", "Lua file is not loaded by any TOC or XML include (may be dead code or loaded dynamically).", "project", Confidence::Certain).at(&f.path, 1, 1));
         }
     }

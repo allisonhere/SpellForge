@@ -96,6 +96,23 @@
     </div>
 
     <div class="sec">
+      <h4>Edge, shadow & animation</h4>
+      {#if isContainer(n.kind)}
+        <label class="chk"><input type="checkbox" checked={!!n.border} onchange={(e) => d.edit(() => { if (e.currentTarget.checked) n.border = { size: 1, color: [0, 0, 0, 1] }; else delete n.border; }, true)} /> Border</label>
+        {#if n.border}<div class="g2"><label>Size px<input class="text" type="number" min="1" value={n.border.size} onchange={(e) => d.edit(() => { n.border!.size = Math.max(1, Math.round(numv(e.currentTarget.value, 1))); }, true)} /></label>
+          <label>Colour<input class="text color" type="color" value={hex(n.border.color)} oninput={(e) => d.edit(() => fromHex(n.border!.color, e.currentTarget.value))} /></label></div>{/if}
+        <label class="chk"><input type="checkbox" checked={!!n.shadow} onchange={(e) => d.edit(() => { if (e.currentTarget.checked) n.shadow = { size: 3, alpha: 0.45 }; else delete n.shadow; }, true)} /> Shadow <span class="faint">(dark rect beyond the edge)</span></label>
+        {#if n.shadow}<div class="g2"><label>Size px<input class="text" type="number" min="1" value={n.shadow.size} onchange={(e) => d.edit(() => { n.shadow!.size = Math.max(1, Math.round(numv(e.currentTarget.value, 3))); }, true)} /></label>
+          <label>Alpha<input type="range" min="0" max="1" step="0.01" value={n.shadow.alpha} oninput={(e) => d.edit(() => { n.shadow!.alpha = numv(e.currentTarget.value, 0.45); })} /></label></div>{/if}
+      {/if}
+      {#if n.kind === "texture"}<label>Blend mode<select class="text" value={n.blend ?? "BLEND"} onchange={(e) => set("blend", e.currentTarget.value as "BLEND" | "ADD")}><option>BLEND</option><option>ADD</option></select></label>{/if}
+      <label class="chk"><input type="checkbox" checked={!!n.pulse} onchange={(e) => d.edit(() => { if (e.currentTarget.checked) n.pulse = { high: 1, low: 0.3, period: 1.1 }; else delete n.pulse; }, true)} /> Pulse (looping alpha bounce)</label>
+      {#if n.pulse}<div class="g3b"><label>High<input class="text" type="number" step="0.05" min="0" max="1" value={n.pulse.high} onchange={(e) => d.edit(() => { n.pulse!.high = numv(e.currentTarget.value, 1); }, true)} /></label>
+        <label>Low<input class="text" type="number" step="0.05" min="0" max="1" value={n.pulse.low} onchange={(e) => d.edit(() => { n.pulse!.low = numv(e.currentTarget.value, 0.3); }, true)} /></label>
+        <label>Period s<input class="text" type="number" step="0.1" min="0.1" value={n.pulse.period} onchange={(e) => d.edit(() => { n.pulse!.period = Math.max(0.1, numv(e.currentTarget.value, 1.1)); }, true)} /></label></div>{/if}
+    </div>
+
+    <div class="sec">
       <h4>Simulation binding <span class="faint">(preview only)</span></h4>
       <label>Drive from
         <select class="text" value={n.bind?.stat ?? ""} onchange={(e) => d.edit(() => { const v = e.currentTarget.value; if (!v) delete n.bind; else n.bind = { ...(n.bind ?? { unit: "$unit" }), stat: v }; }, true)}>
@@ -107,7 +124,7 @@
           <label>Slot<input class="text" type="number" min="0" value={n.bind.slot ?? 0} onchange={(e) => d.edit(() => { n.bind!.slot = Math.max(0, Math.round(numv(e.currentTarget.value))); }, true)} /></label>
         </div>
         <datalist id="unitlist">{#each units as u (u)}<option value={u}></option>{/each}</datalist>
-        {#if n.bind.stat === "health"}<label>Colour by<select class="text" value={n.bind.colorBy ?? "class"} onchange={(e) => d.edit(() => { n.bind!.colorBy = e.currentTarget.value as "class" | "threshold" | "none"; }, true)}><option value="class">class / reaction</option><option value="threshold">health threshold</option><option value="none">keep my colours</option></select></label>{/if}
+        {#if n.bind.stat === "health"}<label>Colour by<select class="text" value={n.bind.colorBy ?? "class"} onchange={(e) => d.edit(() => { n.bind!.colorBy = e.currentTarget.value as "class" | "classBar" | "threshold" | "none"; }, true)}><option value="class">class / reaction (bar + 18% background)</option><option value="classBar">class (bar only)</option><option value="threshold">health threshold</option><option value="none">keep my colours</option></select></label>{/if}
         {#if n.bind.stat === "auraIcon" || n.bind.stat === "auraTime" || n.bind.stat === "auraStacks"}<label>Aura type<select class="text" value={n.bind.aura ?? ""} onchange={(e) => d.edit(() => { const v = e.currentTarget.value; if (v) n.bind!.aura = v as "buff" | "debuff"; else delete n.bind!.aura; }, true)}><option value="">any</option><option value="buff">buff</option><option value="debuff">debuff</option></select></label>{/if}
         {#if n.bind.stat === "lowHealth"}<label>Below health %<input class="text" type="number" value={n.bind.threshold ?? 35} onchange={(e) => d.edit(() => { n.bind!.threshold = numv(e.currentTarget.value, 35); }, true)} /></label>{/if}
         <p class="faint small">{SUPPORT[n.bind.stat]?.summary ?? "Unknown binding"}. Bindings are never written into generated game code.</p>

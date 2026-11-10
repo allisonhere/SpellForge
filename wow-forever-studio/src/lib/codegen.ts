@@ -34,10 +34,44 @@ export function generate(scene: Scene): Generated {
   const warnings: string[] = [];
   const solved = solve(scene);
   for (const [id, msg] of solved.errors) warnings.push(`${scene.nodes[id]?.name ?? id}: ${msg}`);
+  const deco = Object.values(scene.nodes).filter((n) => n.border || n.shadow || n.pulse);
+  if (deco.length) warnings.push(`${deco.length} element(s) use border/shadow/pulse, which are emitted in Lua only (not in the XML output).`);
   const sim = Object.values(scene.nodes).filter((n) => n.bind || n.repeat);
   if (sim.length) warnings.push(`${sim.length} element(s) have preview-only bindings/repeaters; these are not emitted. Wire real events and unit APIs in your own code.`);
   const base = sanitizeName(scene.name);
   return { lua: genLua(scene, base, warnings), xml: genXml(scene, base), warnings, luaPath: `Generated/${base}.lua`, xmlPath: `Generated/${base}.xml` };
+}
+
+const HIDE_UNTIL_WIRED = new Set(["lowHealth", "showIfCasting", "castUninterruptible", "auraIcon", "combat"]);
+
+/** Border / shadow / pulse / blend. Emitted for Lua only (the XML output does not carry them). */
+function decorations(n: SceneNode, v: string, L: string[], isFrame: boolean) {
+  if (n.shadow && isFrame) {
+    L.push(`    ${v}.shadow = ${v}:CreateTexture(nil, "BACKGROUND", nil, -8)`);
+    L.push(`    ${v}.shadow:SetPoint("TOPLEFT", ${v}, "TOPLEFT", ${num(-n.shadow.size)}, ${num(n.shadow.size)})`);
+    L.push(`    ${v}.shadow:SetPoint("BOTTOMRIGHT", ${v}, "BOTTOMRIGHT", ${num(n.shadow.size)}, ${num(-n.shadow.size)})`);
+    L.push(`    ${v}.shadow:SetColorTexture(0, 0, 0, ${num(n.shadow.alpha)})`);
+  }
+  if (n.border && isFrame) {
+    const b = n.border, c = rgba(b.color);
+    L.push(`    ${v}.edge = {}`);
+    for (const [k, pts, size] of [["top", ["TOPLEFT", "TOPRIGHT"], "H"], ["bottom", ["BOTTOMLEFT", "BOTTOMRIGHT"], "H"], ["left", ["TOPLEFT", "BOTTOMLEFT"], "W"], ["right", ["TOPRIGHT", "BOTTOMRIGHT"], "W"]] as const) {
+      L.push(`    ${v}.edge.${k} = ${v}:CreateTexture(nil, "BORDER")`);
+      L.push(`    ${v}.edge.${k}:SetColorTexture(${c})`);
+      for (const p of pts) L.push(`    ${v}.edge.${k}:SetPoint(${luaStr(p)}, ${v}, ${luaStr(p)})`);
+      L.push(`    ${v}.edge.${k}:Set${size === "H" ? "Height" : "Width"}(${num(b.size)})`);
+    }
+  }
+  if (n.blend === "ADD" && !isFrame) L.push(`    ${v}:SetBlendMode("ADD")`);
+  if (n.pulse) {
+    L.push(`    ${v}.pulse = ${v}:CreateAnimationGroup()`);
+    L.push(`    ${v}.pulse:SetLooping("BOUNCE")`);
+    L.push(`    do local a = ${v}.pulse:CreateAnimation("Alpha"); a:SetFromAlpha(${num(n.pulse.high)}); a:SetToAlpha(${num(n.pulse.low)}); a:SetDuration(${num(n.pulse.period / 2)}) end`);
+    L.push(`    ${v}.pulse:Play()`);
+  }
+  if (n.bind && HIDE_UNTIL_WIRED.has(n.bind.stat)) {
+    L.push(`    ${v}:Hide() -- preview-bound (${n.bind.stat}): hidden until your own code shows it`);
+  }
 }
 
 function genLua(scene: Scene, base: string, warnings: string[]): string {
@@ -89,6 +123,7 @@ function genLua(scene: Scene, base: string, warnings: string[]): string {
         L.push(`    ${v}.label:SetText(${luaStr(n.text)})`);
       }
       if (n.alpha !== 1) L.push(`    ${v}:SetAlpha(${num(n.alpha)})`);
+      decorations(n, v, L, true);
       if (n.hidden) L.push(`    ${v}:Hide()`);
     } else if (n.kind === "texture") {
       L.push(`    ${v} = ${p}:CreateTexture(${gname}, ${luaStr(n.layer)})`);
@@ -96,6 +131,7 @@ function genLua(scene: Scene, base: string, warnings: string[]): string {
       for (const a of n.anchors) L.push(anchorLine(n, a));
       L.push(n.texture ? `    ${v}:SetTexture(${luaStr(n.texture)})` : `    ${v}:SetColorTexture(${rgba(n.color)})`);
       if (n.alpha !== 1) L.push(`    ${v}:SetAlpha(${num(n.alpha)})`);
+      decorations(n, v, L, false);
       if (n.hidden) L.push(`    ${v}:Hide()`);
     } else {
       L.push(`    ${v} = ${p}:CreateFontString(${gname}, ${luaStr(n.layer)})`);

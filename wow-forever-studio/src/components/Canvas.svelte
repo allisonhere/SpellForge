@@ -2,7 +2,7 @@
   import { designer as d } from "../lib/designer.svelte";
   import { edgeTargets, right, snapAxis, setRect, solve, top, uiSize, type Rect } from "../lib/layout";
   import { isContainer, LAYERS, STRATA, type SceneNode } from "../lib/scene";
-  import { expandEntries, resolve, type Entry } from "../lib/sim/bind";
+  import { expandEntries, resolve, visibleChain, type Entry } from "../lib/sim/bind";
 
   let viewport: HTMLDivElement;
   const ui = $derived(uiSize(d.scene));
@@ -154,13 +154,17 @@
       {@const rs = (d.simVersion, d.preview && n?.bind ? resolve(d.sim.state, n.bind, e.unit) : null)}
       {#if n}
         {@const live = e.copy === 0 && !e.dim}
-        {@const gone = !!rs && !rs.visible}
+        {@const gone = d.preview && !(d.simVersion, visibleChain(d.scene, e.id, e.unit, d.sim.state))}
+        {@const halo = n.blend === "ADD" && n.kind === "texture"}
+        {@const z = d.zoom}
+        {@const shadows = [n.border ? `0 0 0 ${n.border.size * z}px ${css(n.border.color)}` : "", n.shadow ? `0 0 0 ${n.shadow.size * z}px rgba(0,0,0,${n.shadow.alpha})` : "", halo ? `inset 0 0 ${14 * z}px 0 ${css(rs?.tint ?? n.color)}` : ""].filter(Boolean).join(",")}
+        {@const anim = n.pulse && !gone && (halo ? (rs ? rs.visible : true) : true) ? `animation:${n.pulse.period / 2}s ease-in-out infinite alternate pulse;animation-play-state:${d.playing || !d.preview ? "running" : "paused"};--hi:${n.pulse.high};--lo:${n.pulse.low};` : ""}
         {@const bar = rs?.barColor ?? n.barColor}
         {@const bg = rs?.bgColor ?? n.color}
         {@const fill = rs?.fill ?? Math.max(0, Math.min(1, (n.value - n.min) / ((n.max - n.min) || 1)))}
         <div class="el {n.kind}" class:sel={d.selection === n.id && e.copy === 0} class:hid={n.hidden} class:err={d.solved.errors.has(n.id)} class:copy={e.copy > 0 || e.dim}
-          style="left:{px(r.l)};bottom:{px(r.b)};width:{px(r.w)};height:{px(r.h)};z-index:{it.z};opacity:{gone ? 0 : e.dim ? 0.3 : n.hidden ? 0.3 : n.alpha};
-          {n.kind === 'fontstring' ? '' : `background:${n.kind === 'texture' && n.texture && !rs?.tint ? 'repeating-conic-gradient(#2a2f40 0% 25%, #1d2130 0% 50%) 50% / 12px 12px' : css(rs?.tint ?? bg)};`}"
+          style="left:{px(r.l)};bottom:{px(r.b)};width:{px(r.w)};height:{px(r.h)};z-index:{it.z};opacity:{gone ? 0 : e.dim ? 0.3 : n.hidden ? 0.3 : (halo && rs && !rs.visible) ? 0 : n.alpha};
+          {n.kind === 'fontstring' ? '' : halo ? 'background:transparent;mix-blend-mode:screen;' : `background:${n.kind === 'texture' && n.texture && !rs?.tint ? 'repeating-conic-gradient(#2a2f40 0% 25%, #1d2130 0% 50%) 50% / 12px 12px' : css(rs?.tint ?? bg)};`}{shadows ? `box-shadow:${shadows};` : ''}{anim}"
           onpointerdown={(ev) => (live || !d.preview) && down(ev, n.id)} role="button" tabindex="-1" title="{n.name}{e.unit ? ` · ${e.unit}` : ''} · {Math.round(r.w)}×{Math.round(r.h)} @ {Math.round(r.l)},{Math.round(r.b)}">
           {#if n.kind === "statusbar"}
             <div class="fill" style="width:{fill * 100}%;background:{css(bar)}"></div>
@@ -199,11 +203,12 @@
   .el.err { outline: 1px dashed var(--red); }
   .el.hid { outline: 1px dashed #566078; }
   .el.copy { cursor: default; } .el.copy:hover { outline: none; }
+  @keyframes pulse { from { opacity: var(--hi); } to { opacity: var(--lo); } }
   .secret { position: absolute; right: 1px; top: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 4px var(--amber); pointer-events: none; }
   .fill { position: absolute; left: 0; top: 0; bottom: 0; pointer-events: none; }
   .lbl, .txt, .tx { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; overflow: hidden; white-space: nowrap; font-family: Georgia, "Times New Roman", serif; }
   .txt { justify-content: flex-start; } .tx { font: 10px var(--mono); color: #6f7893; }
-  .live { position: absolute; right: 8px; top: 6px; font: 10.5px var(--mono); color: #6f7893; z-index: 9800; pointer-events: none; } .live.on { color: var(--green); }
+  .live { position: absolute; right: 8px; bottom: 6px; font: 10.5px var(--mono); color: #6f7893; z-index: 9800; pointer-events: none; } .live.on { color: var(--green); }
   .selbox { position: absolute; z-index: 9000; pointer-events: none; box-shadow: 0 0 0 1px var(--cyan); }
   .h { position: absolute; width: 9px; height: 9px; margin: -4.5px; background: #0b0c10; border: 1.5px solid var(--cyan); border-radius: 2px; pointer-events: auto; padding: 0; }
   .h:hover { background: var(--cyan); }

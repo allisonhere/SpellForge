@@ -19,6 +19,7 @@
   import Settings from "./components/Settings.svelte";
   import DeployDialog from "./components/DeployDialog.svelte";
   import NewAddon from "./components/NewAddon.svelte";
+  import Toast from "./components/Toast.svelte";
   import Designer from "./components/Designer.svelte";
 
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -105,6 +106,7 @@
   </div>
 </div>
 
+<Toast />
 {#if store.modal === "palette"}<Palette />{/if}
 {#if store.modal === "settings"}<Settings />{/if}
 {#if store.modal === "deploy"}<DeployDialog />{/if}

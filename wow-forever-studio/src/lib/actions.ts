@@ -14,6 +14,7 @@ export async function openProjectFlow(p: Promise<import("./types").ProjectInfo |
   } catch (e) { store.fail(e); }
 }
 export const openFolder = () => openProjectFlow(ipc.pickProject());
+export const openNested = (path: string) => openProjectFlow(ipc.openNested(path));
 export const openRecent = (path: string) => openProjectFlow(ipc.openRecent(path));
 
 export async function openFile(path: string, line?: number, col?: number) {

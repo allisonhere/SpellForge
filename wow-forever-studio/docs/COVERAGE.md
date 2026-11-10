@@ -58,16 +58,19 @@ Canvas caveats: fonts are system fonts, game textures are placeholders, button v
 
 **Secret values:** health text bindings are flagged in combat. *Measured* (kit) for `player`/`target`; *inferred* for other units. Power text is not flagged because there is no evidence either way.
 
-### Tempus Unit Frame template: fidelity statement
-Source: `Modules/UnitFrames/UnitFrames.lua` and `Core/Style.lua` in the Tempus checkout at commit `7bac2c2`.
+### Tempus templates: fidelity statement
+Templates: **Tempus Player Frame**, **Tempus Target Frame**, **Tempus Unit Frame (compact)**. Source: `Modules/UnitFrames/UnitFrames.lua` and `Core/Style.lua` (read at Tempus `7bac2c2`, re-checked against `f637669`: no differences in these files). Geometry, offsets, colours, spacing and bindings are asserted by `src/lib/tempus.test.ts` against the numbers in the source.
 
 | Reproduced (read from source) | Not reproduced |
 |---|---|
-| 230×44 frame; panel fill `{0.06, 0.068, 0.085, 0.92}` | 1px black border, 3px shadow, inner border (`S.Backdrop`) |
-| Health bar `TOPLEFT/TOPRIGHT`, height `44 − 9 − 1 = 34` | Smooth bar animation, "lag bar" (recent-damage drain) |
-| Power bar `BOTTOMLEFT/BOTTOMRIGHT`, 9px; 1px black separator 1px below health | Low-health red glow + pulse (the `lowHealth` binding exists but the template does not use Tempus's glow) |
-| Name `LEFT+5`, health text `RIGHT−5`, name's right edge anchored 6px left of health text, power text `RIGHT−5` | Portrait (2D/3D/overlay), class power pips, auras/castbar attached to the frame |
-| Class-coloured health with background at 18% of the class colour; power colour `{0.3,0.5,0.95}` | Health colour modes DARK / REACTION / GRADIENT; tapped/offline states; real fonts and bar texture |
-| Default player position `CENTER −300,−180` | Secure unit button, click-casting, tooltips |
+| 230×44 frame, panel fill `{0.06, 0.068, 0.085, 0.92}`, **1px black edge and 3px/0.45 shadow** (`S.Backdrop`) | The *inner* border (`h.inner`), whose colour I did not read |
+| Health `TOPLEFT/TOPRIGHT`, height `44−9−1 = 34`; power `BOTTOMLEFT/BOTTOMRIGHT` 9px; 1px separator 1px below health | Smooth-bar interpolation (the client's `StatusBarInterpolation`); our lag easing uses an assumed time constant of 0.35 s |
+| Name `LEFT+5`, health text `RIGHT−5`, name right edge 6px before health text, power text `RIGHT−5` | Real fonts, real bar/glow textures (the glow is a soft red halo, not Tempus's sliced `glow` texture) |
+| Class-coloured health, background 18% of class colour, power `{0.3,0.5,0.95}` | Health colour modes DARK / REACTION / GRADIENT; tapped / offline states |
+| **Lag bar** (`S.LagBar`): red `{0.85,0.25,0.2,0.75}` behind health, jumps up on heals, eases down after damage | Kick-ready colouring, spark, flash on interrupt, fade timers |
+| **Player low-health glow**: 14px, red `{1,0.12,0.08}` below 35%, ADD blend, `S.Pulse` 1→0.3 over 1.1 s, off when dead | The 3D/2D **portrait contents**: a game model cannot be rendered here. The 44×44 slot and the `height+1` shift of health/power are reproduced; it shows a "3D" placeholder |
+| **Cast bar** (castbarHeight 18): `TOPLEFT +22,−6`, `TOPRIGHT 0,−6`, own backdrop; accent `{0.25,0.76,1}` fill, grey shield `{0.6,0.6,0.6,0.45}` for uninterruptible casts, spell name left+6, time right−6, 18×18 icon frame 4px left. Visible only while casting, children included | Real spell icon (placeholder), channel colour `{0.35,0.75,0.35}`, interrupted-red state |
+| **Target auras**: 2 rows × 8 icons, 24px, spacing 3, debuffs 6px above the frame and buffs 3px above those, growing up | Real aura icons (tinted tiles), timers/stacks, sort/filter options, per-unit aura sizes |
+| Default positions: player `CENTER −300,−180`, target `CENTER 300,−180` | Secure unit button, click-casting, tooltips, class power pips, scale |
 
-It is a faithful *layout and colour* model of one component, not a recreation of the Tempus runtime. Tempus's own use of `issecret`, `pcall` and `UnitHealthPercent(…, curve)` confirms the secret-value handling the preview warns about.
+They are a faithful *layout, colour and behaviour-of-the-visuals* model of three components, not a recreation of the Tempus runtime. Tempus's own use of `issecret`, `pcall` and `UnitHealthPercent(…, curve)` confirms the secret-value handling the preview warns about.

@@ -42,7 +42,16 @@ class Store {
     this.log.push({ t: Date.now(), level, text });
     if (this.log.length > 500) this.log.splice(0, 100);
   }
-  fail(e: unknown) { this.say("error", errText(e)); }
+  toast = $state<{ text: string; level: "error" | "info" } | null>(null);
+  private toastTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Errors must be visible even before a project is open (the Output panel only exists with a project). */
+  fail(e: unknown) {
+    const text = errText(e);
+    this.say("error", text);
+    this.toast = { text, level: "error" };
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => (this.toast = null), 12000);
+  }
 
   allDiagnostics = $derived.by(() => {
     const out: Diagnostic[] = [];

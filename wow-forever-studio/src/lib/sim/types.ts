@@ -5,7 +5,7 @@ export interface SimAura { spellId: number; name: string; harmful: boolean; stac
 export interface SimCast { spell: string; start: number; end: number; interruptible: boolean; channel: boolean; color: Rgba }
 export interface SimUnit {
   id: string; name: string; class: string; role: "TANK" | "HEALER" | "DAMAGER"; level: number;
-  health: number; maxHealth: number; power: number; maxPower: number; powerType: PowerType;
+  health: number; maxHealth: number; /** Eases down toward health after damage (lag bar). */ lag: number; power: number; maxPower: number; powerType: PowerType;
   alive: boolean; hostile: boolean; auras: SimAura[]; cast: SimCast | null;
 }
 export interface SimEvent { t: number; name: string; args: string }

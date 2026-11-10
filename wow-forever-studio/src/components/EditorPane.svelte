@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { monaco, docs, saveDoc } from "../lib/monacoSetup";
   import { store } from "../lib/store.svelte";
+  import NoToc from "./NoToc.svelte";
   import { closeTab, findReferences, goToDefinition, saveActive } from "../lib/actions";
 
   let host: HTMLDivElement;
@@ -77,7 +78,7 @@
     {/each}
   </div>
   <div class="ed" class:hidden={!store.active} bind:this={host}></div>
-  {#if !store.active}<div class="empty">Select a file in the Explorer, or press <span class="kbd">Ctrl+P</span> to open by name.</div>{/if}
+  {#if !store.active && store.project && !store.project.tocs.length}<NoToc />{:else if !store.active}<div class="empty">Select a file in the Explorer, or press <span class="kbd">Ctrl+P</span> to open by name.</div>{/if}
   <div class="status">
     <span>{store.active ?? ""}</span><span class="grow"></span>
     {#if store.active}<span>Ln {status.line}, Col {status.col}</span>{/if}

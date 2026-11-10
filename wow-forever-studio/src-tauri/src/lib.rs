@@ -94,6 +94,15 @@ fn open_recent(state: State<AppState>, path: String) -> R<project::ProjectInfo> 
     state.approve_and_open(Path::new(&path))
 }
 
+/// Open an addon folder found *inside* the already-approved project root (e.g. when the user picked an AddOns folder).
+#[tauri::command]
+fn open_nested(state: State<AppState>, path: String) -> R<project::ProjectInfo> {
+    let root = state.root()?;
+    let abs = fsguard::resolve_within(&root, &path).map_err(|e| e.to_string())?;
+    if !abs.is_dir() { return Err(format!("{path} is not a folder")); }
+    state.approve_and_open(&abs)
+}
+
 #[tauri::command]
 fn project_info(state: State<AppState>) -> R<project::ProjectInfo> {
     Ok(project::open_info(&state.root()?))
@@ -304,7 +313,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            boot, save_ui, pick_project, open_recent, project_info, project_files, read_file, write_file, validate_project,
+            boot, save_ui, pick_project, open_recent, open_nested, project_info, project_files, read_file, write_file, validate_project,
             check_buffer, search_project, api_index, compat_notes, import_api_snapshot, reset_api_snapshot, add_installation,
             remove_installation, package_project, deploy_plan, deploy_apply, create_addon
         ])

@@ -9,6 +9,8 @@ export interface Support { kinds: Kind[]; summary: string; secretInCombat?: bool
 /** Everything the preview can drive. Anything not listed here is NOT simulated and is reported, never silently ignored. */
 export const SUPPORT: Record<string, Support> = {
   health: { kinds: ["statusbar"], summary: "Unit health as bar fill; colour by class or health threshold" },
+  healthLag: { kinds: ["statusbar"], summary: "Lag bar: eases down behind the health bar after damage (Tempus S.LagBar)" },
+  castUninterruptible: { kinds: ["texture", "frame"], summary: "Shown while the unit casts something that cannot be interrupted (Tempus shield overlay)" },
   power: { kinds: ["statusbar"], summary: "Mana / rage / energy as bar fill" },
   cast: { kinds: ["statusbar"], summary: "Cast progress; hidden when not casting; grey when uninterruptible" },
   auraTime: { kinds: ["statusbar"], summary: "Remaining duration of the aura in slot N (buff or debuff)" },
@@ -62,10 +64,16 @@ export function resolve(st: SimState, b: Binding, ctxUnit: string | null): Resol
       let bar: Rgba = dead ? [0.35, 0.35, 0.35, 1] : base, bg: Rgba = dead ? [0.1, 0.1, 0.1, 0.9] : [base[0] * 0.18, base[1] * 0.18, base[2] * 0.18, 0.9];
       if (b.colorBy === "threshold" && !dead) { bar = thresholdColor(pct); bg = [0.08, 0.09, 0.11, 0.9]; }
       if (b.colorBy === "none") return { visible: true, fill: pct };
+      if (b.colorBy === "classBar") return { visible: true, fill: pct, barColor: bar, bgColor: [0, 0, 0, 0] };
       return { visible: true, fill: pct, barColor: bar, bgColor: bg };
     }
+    case "healthLag": {
+      const dead = !u.alive, base = unitColor(u);
+      return { visible: true, fill: u.maxHealth > 0 ? Math.max(u.lag, u.health) / u.maxHealth : 0, barColor: [0.85, 0.25, 0.2, 0.75], bgColor: dead ? [0.1, 0.1, 0.1, 0.9] : [base[0] * 0.18, base[1] * 0.18, base[2] * 0.18, 0.9] };
+    }
+    case "castUninterruptible": return { visible: !!u.cast && !u.cast.interruptible, tint: [0.6, 0.6, 0.6, 0.45] };
     case "power": return { visible: true, fill: u.maxPower > 0 ? u.power / u.maxPower : 0, barColor: [...POWER_COLORS[u.powerType]] as Rgba };
-    case "cast": return u.cast ? { visible: true, fill: Math.min(1, (st.t - u.cast.start) / (u.cast.end - u.cast.start)), barColor: u.cast.color } : { visible: false, fill: 0 };
+    case "cast": return u.cast ? { visible: true, fill: Math.min(1, (st.t - u.cast.start) / (u.cast.end - u.cast.start)), barColor: b.fixedColor ?? u.cast.color } : { visible: false, fill: 0 };
     case "auraTime": { const a = auras[b.slot ?? 0]; return a ? { visible: true, fill: Math.max(0, (a.expires - st.t) / a.duration), barColor: a.color } : { visible: false, fill: 0 }; }
     case "name": return { visible: true, text: u.name };
     case "level": return { visible: true, text: String(u.level) };
@@ -78,12 +86,21 @@ export function resolve(st: SimState, b: Binding, ctxUnit: string | null): Resol
     case "castTime": return u.cast ? { visible: true, text: Math.max(0, (u.cast.end - st.t) / 1000).toFixed(1) } : { visible: false, text: "" };
     case "auraStacks": { const a = auras[b.slot ?? 0]; return a ? { visible: a.stacks > 1, text: String(a.stacks) } : { visible: false, text: "" }; }
     case "auraIcon": { const a = auras[b.slot ?? 0]; return a ? { visible: true, tint: a.color } : { visible: false }; }
-    case "lowHealth": return { visible: u.alive && pct * 100 < (b.threshold ?? 35), tint: [1, 0.15, 0.15, 0.55] };
+    case "lowHealth": return { visible: u.alive && pct * 100 < (b.threshold ?? 35), tint: [1, 0.12, 0.08, 1] };
     case "combat": return { visible: st.inCombat };
     case "showIfExists": return { visible: true };
     case "showIfCasting": return { visible: !!u.cast };
     default: return { visible: true };
   }
+}
+
+/** A child of a hidden or unbound-visible-false frame is not drawn either, exactly like the client. */
+export function visibleChain(scene: Scene, nodeId: string, ctxUnit: string | null, st: SimState | null): boolean {
+  for (let n: SceneNode | undefined = scene.nodes[nodeId]; n; n = n.parent ? scene.nodes[n.parent] : undefined) {
+    if (n.hidden && n.id !== nodeId) return false;
+    if (st && n.bind && !resolve(st, n.bind, ctxUnit).visible) return false;
+  }
+  return true;
 }
 
 // ---------------- repeaters ----------------

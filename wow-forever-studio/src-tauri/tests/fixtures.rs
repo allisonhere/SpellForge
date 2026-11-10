@@ -75,3 +75,21 @@ fn xml_includes_are_followed() {
     assert_eq!(has(&r, "xml.missing-file").len(), 1);
     assert_eq!(r.stats.loaded_files, 1, "a.lua is loaded through XML");
 }
+
+#[test]
+fn utf8_bom_is_not_a_syntax_error() {
+    let r = run(&[("Bad.toc", "\u{feff}## Interface: 16001\nCore.lua\n"), ("Core.lua", "\u{feff}local x = 1\nreturn x\n")]);
+    assert!(has(&r, "lua.syntax").is_empty(), "the client tolerates a BOM: {:?}", has(&r, "lua.syntax").iter().map(|d| &d.message).collect::<Vec<_>>());
+    assert_eq!(r.stats.loaded_files, 1);
+}
+
+#[test]
+fn parent_folder_lists_nested_addons() {
+    let d = tempfile::tempdir().unwrap();
+    for n in ["AddonA", "AddonB"] { fs::create_dir_all(d.path().join(n)).unwrap(); fs::write(d.path().join(n).join(format!("{n}.toc")), "## Interface: 16001\n").unwrap(); }
+    fs::create_dir_all(d.path().join("node_modules/x")).unwrap(); fs::write(d.path().join("node_modules/x/x.toc"), "").unwrap();
+    let root = d.path().canonicalize().unwrap();
+    let info = project::open_info(&root);
+    assert!(info.tocs.is_empty());
+    assert_eq!(info.nested_addons, vec!["AddonA", "AddonB"]);
+}

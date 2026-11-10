@@ -57,6 +57,7 @@ export class Sim {
     if (s.inCombat) this.stepCombat(t);
     this.stepAuras(t);
     this.stepPower(t);
+    this.stepLag();
     for (const [k, cd] of Object.entries(s.cooldowns)) if (t >= cd.start + cd.duration) { delete s.cooldowns[k]; this.emit("SPELL_UPDATE_COOLDOWN", k); }
   }
 
@@ -142,6 +143,12 @@ export class Sim {
     }
   }
 
+  /** Lag bar: jumps up with heals, eases down after damage. The client's real easing is Enum.StatusBarInterpolation; tau is an approximation. */
+  private stepLag() {
+    const k = 1 - Math.exp(-(TICK_MS / 1000) / 0.35);
+    for (const u of Object.values(this.state.units)) u.lag = u.health >= u.lag ? u.health : u.lag + (u.health - u.lag) * k;
+  }
+
   private stepPower(t: number) {
     const p = this.state.units["player"]!;
     if (!p.alive) return;
@@ -157,13 +164,13 @@ export class Sim {
 }
 
 function makeUnit(id: string, name: string, cls: string, role: SimUnit["role"], maxHealth: number, extra: Partial<SimUnit> = {}): SimUnit {
-  return { id, name, class: cls, role, level: 80, health: maxHealth, maxHealth, power: 100, maxPower: 100, powerType: "MANA", alive: true, hostile: false, auras: [], cast: null, ...extra };
+  return { id, name, class: cls, role, level: 80, health: maxHealth, maxHealth, lag: maxHealth, power: 100, maxPower: 100, powerType: "MANA", alive: true, hostile: false, auras: [], cast: null, ...extra };
 }
 
 export function initial(sc: Scenario): SimState {
   const units: Record<string, SimUnit> = {};
   const pmax = sc.playerMaxHealth;
-  units["player"] = makeUnit("player", "Playerone", "MAGE", "DAMAGER", pmax, { health: pmax * sc.playerHealthPct / 100, powerType: sc.playerPowerType, power: sc.playerPowerPct, level: 80 });
+  units["player"] = makeUnit("player", "Playerone", "MAGE", "DAMAGER", pmax, { health: pmax * sc.playerHealthPct / 100, lag: pmax * sc.playerHealthPct / 100, powerType: sc.playerPowerType, power: sc.playerPowerPct, level: 80 });
   units["target"] = makeUnit("target", sc.targetName, "WARRIOR", "DAMAGER", sc.targetMaxHealth, { hostile: true });
   const roster = (prefix: string, n: number) => {
     for (let i = 1; i <= n; i++) {
@@ -180,7 +187,7 @@ export function initial(sc: Scenario): SimState {
 
 /** Stable fingerprint of the full simulation state, used to prove determinism. */
 export function stateHash(st: SimState): string {
-  const o = JSON.stringify([st.t, st.inCombat, st.rng, st.respawnAt, Object.values(st.units).map((u) => [u.id, +u.health.toFixed(3), +u.power.toFixed(3), u.alive, u.auras.map((a) => [a.spellId, a.expires, a.stacks]), u.cast && [u.cast.spell, u.cast.end]]), st.cooldowns, st.log.length]);
+  const o = JSON.stringify([st.t, st.inCombat, st.rng, st.respawnAt, Object.values(st.units).map((u) => [u.id, +u.health.toFixed(3), +u.lag.toFixed(3), +u.power.toFixed(3), u.alive, u.auras.map((a) => [a.spellId, a.expires, a.stacks]), u.cast && [u.cast.spell, u.cast.end]]), st.cooldowns, st.log.length]);
   let h = 2166136261;
   for (let i = 0; i < o.length; i++) { h ^= o.charCodeAt(i); h = Math.imul(h, 16777619); }
   return (h >>> 0).toString(16).padStart(8, "0");

@@ -41,6 +41,13 @@ export interface SceneNode {
   barColor: Rgba;
   bind?: Binding;
   repeat?: Repeat;
+  /** Edge drawn around the element (Tempus S.Backdrop edge). */
+  border?: { size: number; color: Rgba };
+  /** Flat dark rect extending `size` px beyond the element (Tempus S.Backdrop shadow). */
+  shadow?: { size: number; alpha: number };
+  /** Looping alpha bounce between `high` and `low` (Tempus S.Pulse; WoW AnimationGroup, BOUNCE). */
+  pulse?: { high: number; low: number; period: number };
+  blend?: "BLEND" | "ADD";
 }
 
 /** Preview-only data binding: drives a node from simulated unit state. Never emitted into generated game code. */
@@ -51,7 +58,10 @@ export interface Binding {
   slot?: number;
   aura?: "buff" | "debuff";
   threshold?: number;
-  colorBy?: "class" | "threshold" | "none";
+  /** class = bar + 18% background (Tempus); classBar = bar only, transparent background. */
+  colorBy?: "class" | "classBar" | "threshold" | "none";
+  /** Overrides the bar colour (e.g. Tempus casts use its accent colour). */
+  fixedColor?: Rgba;
 }
 /** Preview-only repeater for group/raid layouts: renders the node's subtree once per unit in a grid. */
 export interface Repeat { kind: "party" | "raid"; count: number; columns: number; gapX: number; gapY: number }
