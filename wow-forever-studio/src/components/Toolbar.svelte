@@ -13,6 +13,9 @@
       </span>
     {:else}<span class="faint">No project open</span>{/if}
   </div>
+  {#if store.project}
+    <div class="seg"><button class:on={store.view === "code"} onclick={() => { store.view = "code"; store.persist(); }}>Code</button><button class:on={store.view === "design"} onclick={() => { store.view = "design"; store.persist(); }}>Design</button></div>
+  {/if}
   <div class="grow"></div>
   {#if store.busy}<span class="muted busy">{store.busy}</span>{/if}
   <button class="btn ghost" onclick={openFolder} title="Open folder (Ctrl+O)">Open</button>
@@ -37,6 +40,8 @@
   .proj { display: flex; align-items: center; gap: 8px; margin-left: 14px; padding-left: 14px; border-left: 1px solid var(--border); }
   .name { font-weight: 600; }
   .grow { flex: 1; }
+  .seg { display: flex; margin-left: 14px; background: var(--bg); border: 1px solid var(--border2); border-radius: 8px; padding: 2px; }
+  .seg button { padding: 3px 14px; border-radius: 6px; color: var(--dim); font-size: 12px; } .seg button.on { background: linear-gradient(180deg, #7a5cf5, #5f45d1); color: #fff; }
   .sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
   .busy { margin-right: 6px; }
   .cnt { display: inline-flex; gap: 4px; margin-left: 2px; }

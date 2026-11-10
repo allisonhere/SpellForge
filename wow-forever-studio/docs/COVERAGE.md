@@ -37,6 +37,17 @@ Sources: `data/sources/SOURCES.json` (commits + SHA-256). Nothing here was verif
 
 Not implemented: scope-aware analysis, widget-method (`frame:SetFoo()`) validation (no widget method dataset), XML schema validation, taint analysis, argument-type checking, retail-portability CSV import.
 
+## Designer coverage (Phase 2)
+
+| Supported | Not supported yet |
+|---|---|
+| Frame, Button (label), Texture (solid colour or path), FontString, StatusBar | Cooldown, EditBox, ScrollFrame, CheckButton, Slider, Model, Line, MaskTexture, secure templates |
+| Anchors (9 points, sibling or parent target), strata, level, draw layers, alpha, hidden | Texture coordinates/atlas, rotation, scale per frame, clip children, mouse/click scripts |
+| Resolution + UI scale, grid/edge snapping, undo/redo, templates | Multi-select, align/distribute commands, copy/paste across scenes |
+| Lua generation (CreateFrame/CreateTexture/CreateFontString/SetPoint…), XML generation | Event/script wiring (by design: that is hand-written code) |
+
+Canvas caveats: fonts are system fonts, game textures are placeholders, button visuals are flat. XML output gives every element the global name `<Scene>_<name>`; top-level textures/font strings exist only in the Lua output. The generated code was syntax-checked with `luac`, **not executed in a game client**.
+
 ## Preview/simulation coverage
 None yet (Phase 3). The simulator, when built, will not claim to implement the WoW runtime; see ROADMAP.
 

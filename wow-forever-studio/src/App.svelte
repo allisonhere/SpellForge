@@ -19,6 +19,7 @@
   import Settings from "./components/Settings.svelte";
   import DeployDialog from "./components/DeployDialog.svelte";
   import NewAddon from "./components/NewAddon.svelte";
+  import Designer from "./components/Designer.svelte";
 
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -34,6 +35,7 @@
       Object.assign(store.ui, Object.fromEntries(Object.entries(boot.settings.ui ?? {}).filter(([k]) => k in store.ui)));
       const saved = boot.settings.ui;
       store.cursor = saved?.cursor ?? {};
+      if (saved?.view === "design") store.view = "design";
       const last = boot.settings.lastProject;
       if (last && boot.settings.recentProjects.includes(last)) {
         await openRecent(last);
@@ -84,7 +86,8 @@
       {#if !store.project}
         <Welcome />
       {:else}
-        <EditorPane />
+        <div class="vw" class:off={store.view !== "code"}><EditorPane /></div>
+        {#if store.view === "design"}<Designer />{/if}
         {#if store.ui.showBottom}
           <Splitter dir="h" onresize={(d) => { store.ui.bottomHeight = clamp(store.ui.bottomHeight - d, 90, 600); store.persist(); }} />
           <div class="dock" style="height:{store.ui.bottomHeight}px"><BottomDock /></div>
@@ -111,6 +114,7 @@
   .main { display: flex; flex: 1; min-height: 0; }
   .side { display: flex; flex-direction: column; background: var(--panel); min-height: 0; flex: none; border-right: 1px solid var(--border); }
   .main > .side:last-child { border-right: 0; border-left: 1px solid var(--border); }
+  .vw { display: flex; flex: 1; min-height: 0; min-width: 0; } .vw.off { display: none; }
   .center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   .dock { display: flex; flex-direction: column; flex: none; border-top: 1px solid var(--border); background: var(--panel); min-height: 0; }
 </style>

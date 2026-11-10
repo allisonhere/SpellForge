@@ -39,6 +39,7 @@ export interface UiState {
   leftWidth?: number; rightWidth?: number; bottomHeight?: number;
   showLeft?: boolean; showRight?: boolean; showBottom?: boolean;
   leftTab?: string; rightTab?: string; bottomTab?: string;
+  view?: "code" | "design";
   openFiles?: string[]; activeFile?: string | null;
   cursor?: Record<string, { line: number; col: number }>;
 }

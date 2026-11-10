@@ -22,7 +22,7 @@ class Store {
   apiOrigin = $state("bundled");
   notes = $state.raw<CompatNote[]>([]);
   selectedApi = $state<ApiHit | null>(null);
-  ui = $state<Required<Omit<UiState, "cursor" | "openFiles" | "activeFile">>>({
+  ui = $state<Required<Omit<UiState, "cursor" | "openFiles" | "activeFile" | "view">>>({
     leftWidth: 270, rightWidth: 320, bottomHeight: 220, showLeft: true, showRight: true, showBottom: true,
     leftTab: "explorer", rightTab: "toc", bottomTab: "problems",
   });
@@ -32,6 +32,7 @@ class Store {
   busy = $state("");
   jump = $state<{ path: string; line: number; col: number; n: number } | null>(null);
   ready = $state(false);
+  view = $state<"code" | "design">("code");
 
   say(level: LogLine["level"], text: string) {
     this.log.push({ t: Date.now(), level, text });
@@ -78,7 +79,7 @@ class Store {
   persist() {
     clearTimeout(this.persistTimer);
     this.persistTimer = setTimeout(() => {
-      const ui: UiState = { ...$state.snapshot(this.ui), openFiles: this.tabs.map((t) => t.path), activeFile: this.active, cursor: this.cursor };
+      const ui: UiState = { ...$state.snapshot(this.ui), view: this.view, openFiles: this.tabs.map((t) => t.path), activeFile: this.active, cursor: this.cursor };
       ipc.saveUi(ui).catch(() => {});
     }, 300);
   }
