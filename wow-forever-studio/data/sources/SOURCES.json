@@ -1,0 +1,20 @@
+{
+  "sources": [
+    {
+      "file": "wow-addons-api.json",
+      "origin": "https://github.com/Atraeau/WoW-Addons (docs/api.json)",
+      "commit": "8ff852f3789ff6f24a891caa3d744fbda2ff0672",
+      "kind": "in-client export of Blizzard's APIDocumentation (build 70790) plus global function names",
+      "license": "No repository-level license file found. Contents are an export of Blizzard's own client API documentation; bundled for offline reference with attribution. Remove/replace if the owner objects.",
+      "evidence": "client-export"
+    },
+    {
+      "file": "forever-addon-kit-api.json",
+      "origin": "https://github.com/Thunderz96/forever-addon-kit (data/forever_api.json)",
+      "commit": "8dc297689059dd204bf8663a05aaa36d6a628b76",
+      "kind": "captured API surface (names only): global functions, frames, namespaces; build 1.60.1.69893",
+      "license": "MIT (c) 2026 Thunderz, see forever-addon-kit.LICENSE",
+      "evidence": "client-capture"
+    }
+  ]
+}

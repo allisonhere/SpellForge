@@ -1,0 +1,33 @@
+[package]
+name = "wow-forever-studio"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Offline-first IDE for World of Warcraft: Forever addons"
+
+[lib]
+name = "wfs_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+full_moon = "1"
+directories = "5"
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+strip = true

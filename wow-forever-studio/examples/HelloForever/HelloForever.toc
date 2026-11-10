@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: Hello Forever
+## Notes: Minimal example addon for WoW Forever Studio.
+## Author: WoW Forever Studio
+## Version: 0.1.0
+## SavedVariables: HelloForeverDB
+
+Core.lua
