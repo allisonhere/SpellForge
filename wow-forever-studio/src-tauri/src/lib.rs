@@ -113,6 +113,25 @@ fn open_nested(state: State<AppState>, path: String) -> R<project::ProjectInfo> 
     state.approve_and_open(&abs)
 }
 
+/// Resolve a game-style asset path to a file in the open addon (None if it is not the addon's own file).
+#[tauri::command]
+fn resolve_asset(state: State<AppState>, game_path: String) -> R<Option<String>> {
+    let root = state.root()?;
+    let info = project::open_info(&root);
+    Ok(project::resolve_addon_asset(&root, &info.addon_name, &game_path))
+}
+
+/// Raw bytes of an image or font inside the open addon. Binary response (no JSON array overhead); 16 MB cap.
+#[tauri::command]
+fn read_asset_bytes(state: State<AppState>, path: String) -> R<tauri::ipc::Response> {
+    let root = state.root()?;
+    if !project::is_readable_asset(&path) { return Err(format!("{path}: only image and font files can be read as assets")); }
+    let abs = fsguard::resolve_within(&root, &path).map_err(|e| e.to_string())?;
+    let md = std::fs::metadata(&abs).map_err(|e| format!("{path}: {e}"))?;
+    if !md.is_file() || md.len() > 16 * 1024 * 1024 { return Err(format!("{path}: not a readable asset (max 16 MB)")); }
+    std::fs::read(&abs).map(tauri::ipc::Response::new).map_err(|e| format!("{path}: {e}"))
+}
+
 #[tauri::command]
 fn project_info(state: State<AppState>) -> R<project::ProjectInfo> {
     Ok(project::open_info(&state.root()?))
@@ -398,7 +417,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            boot, save_ui, pick_project, open_recent, open_nested, project_info, project_files, read_file, write_file, validate_project,
+            boot, save_ui, pick_project, open_recent, open_nested, resolve_asset, read_asset_bytes, project_info, project_files, read_file, write_file, validate_project,
             check_buffer, search_project, import_ui_source, ui_source_status, ui_template_search, ui_template_resolve, api_index, compat_notes, import_api_snapshot, reset_api_snapshot, add_installation,
             remove_installation, package_project, deploy_plan, deploy_apply, create_addon
         ])

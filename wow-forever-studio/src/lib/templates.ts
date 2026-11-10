@@ -28,6 +28,9 @@ export const TEMPUS_UNIT_FRAME_ID = "builtin-tempus-unit-frame";
 
 const TEMPUS_PANEL: [number, number, number, number] = [0.06, 0.068, 0.085, 0.92];
 const TEMPUS_ACCENT: [number, number, number, number] = [0.25, 0.76, 1, 1];
+/** Tempus's own media (Core/Style.lua: S.MEDIA, S.INTER; default bar texture "bar-tempus"). Resolved from the open addon project when present. */
+const TEMPUS_BAR_TEXTURE = "Interface\\AddOns\\Tempus\\media\\bar-tempus";
+const TEMPUS_FONT = "Interface\\AddOns\\Tempus\\media\\fonts\\Inter-SemiBold.ttf";
 const EDGE = { size: 1, color: [0, 0, 0, 1] as [number, number, number, number] };
 const SHADOW = { size: 3, alpha: 0.45 };
 
@@ -70,6 +73,10 @@ function tempusFrame(s: Scene, o: TempusOpts): string {
     };
     const deb = row("Debuffs", "debuff", null, 6);
     row("Buffs", "buff", deb.id, GAP);
+  }
+  for (const n of Object.values(s.nodes)) {
+    if (n.kind === "statusbar") n.texture = TEMPUS_BAR_TEXTURE;
+    if (n.kind === "fontstring") n.font = TEMPUS_FONT;
   }
   return root.id;
 }

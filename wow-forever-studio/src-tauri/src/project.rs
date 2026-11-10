@@ -105,7 +105,7 @@ pub fn open_info(root: &Path) -> ProjectInfo {
 }
 
 /// Find the on-disk case-exact name of `rel` under root, case-insensitively. Returns (exists_exact, actual_if_case_differs).
-fn lookup_ci(root: &Path, rel: &str) -> (bool, Option<String>) {
+pub fn lookup_ci(root: &Path, rel: &str) -> (bool, Option<String>) {
     let mut cur = root.to_path_buf();
     let mut exact = true;
     let mut actual = vec![];
@@ -418,3 +418,28 @@ pub fn evidence_label(e: Evidence) -> &'static str {
 }
 
 pub fn root_join(root: &Path, rel: &str) -> PathBuf { root.join(rel) }
+
+
+const ASSET_EXTS_READ: &[&str] = &["tga", "png", "jpg", "jpeg", "ttf", "otf"];
+
+/// Map a game-style path (`Interface\\AddOns\\<Addon>\\media\\bar`) to a real file inside this addon project, tolerating missing
+/// extensions and wrong letter case. Paths outside the addon are refused: only the addon's own files are ever served.
+pub fn resolve_addon_asset(root: &Path, addon: &str, game_path: &str) -> Option<String> {
+    let norm = game_path.replace('\\', "/");
+    let prefix = format!("interface/addons/{}/", addon.to_ascii_lowercase());
+    let rest = norm.to_ascii_lowercase().strip_prefix(&prefix).map(|_| norm[prefix.len()..].to_string())?;
+    if rest.is_empty() || rest.split('/').any(|p| p == ".." || p.is_empty()) {
+        return None;
+    }
+    let has_ext = Path::new(&rest).extension().is_some_and(|e| ASSET_EXTS_READ.contains(&e.to_string_lossy().to_ascii_lowercase().as_str()));
+    let cands: Vec<String> = if has_ext { vec![rest.clone()] } else { ASSET_EXTS_READ.iter().map(|e| format!("{rest}.{e}")).collect() };
+    cands.into_iter().find_map(|c| match lookup_ci(root, &c) {
+        (true, Some(actual)) => Some(actual),
+        (true, None) => Some(c),
+        _ => None,
+    })
+}
+
+pub fn is_readable_asset(rel: &str) -> bool {
+    Path::new(rel).extension().is_some_and(|e| ASSET_EXTS_READ.contains(&e.to_string_lossy().to_ascii_lowercase().as_str()))
+}

@@ -59,6 +59,9 @@ Canvas caveats: fonts are system fonts, game textures are placeholders, button v
 
 **Secret values:** health text bindings are flagged in combat. *Measured* (kit) for `player`/`target`; *inferred* for other units. Power text is not flagged because there is no evidence either way.
 
+### Addon-owned assets on the canvas
+When the addon project is open, the canvas renders the addon's **own** textures and fonts: TGA (types 2/10/3/11; 8/24/32 bpp) and PNG/JPG textures, and TTF/OTF fonts, resolved from game-style paths (`Interface\\AddOns\\<Addon>\\...`, case-insensitive, extension optional). Status bars multiply the texture by the bar colour and crop it as the client does. Only files inside the open addon are served (enforced in Rust; other addons, Blizzard paths and `..` are refused). **Not yet:** BLP (Tempus ships none), nine-slice / texture coordinates (so Tempus's sliced `glow.tga` is still approximated by a CSS halo), atlases. Blizzard paths (`Interface\\Buttons\\...`, `Fonts\\FRIZQT__.TTF`) render as placeholders because the client's copies are encrypted.
+
 ### Tempus templates: fidelity statement
 Templates: **Tempus Player Frame**, **Tempus Target Frame**, **Tempus Unit Frame (compact)**. Source: `Modules/UnitFrames/UnitFrames.lua` and `Core/Style.lua` (read at Tempus `7bac2c2`, re-checked against `f637669`: no differences in these files). Geometry, offsets, colours, spacing and bindings are asserted by `src/lib/tempus.test.ts` against the numbers in the source.
 
@@ -66,7 +69,7 @@ Templates: **Tempus Player Frame**, **Tempus Target Frame**, **Tempus Unit Frame
 |---|---|
 | 230×44 frame, panel fill `{0.06, 0.068, 0.085, 0.92}`, **1px black edge and 3px/0.45 shadow** (`S.Backdrop`) | The *inner* border (`h.inner`), whose colour I did not read |
 | Health `TOPLEFT/TOPRIGHT`, height `44−9−1 = 34`; power `BOTTOMLEFT/BOTTOMRIGHT` 9px; 1px separator 1px below health | Smooth-bar interpolation (the client's `StatusBarInterpolation`); our lag easing uses an assumed time constant of 0.35 s |
-| Name `LEFT+5`, health text `RIGHT−5`, name right edge 6px before health text, power text `RIGHT−5` | Real fonts, real bar/glow textures (the glow is a soft red halo, not Tempus's sliced `glow` texture) |
+| Name `LEFT+5`, health text `RIGHT−5`, name right edge 6px before health text, power text `RIGHT−5` | Tempus's sliced `glow.tga` (the glow is a CSS halo). Blizzard fonts and textures. The bar texture and Inter SemiBold **are** real when the Tempus project is open |
 | Class-coloured health, background 18% of class colour, power `{0.3,0.5,0.95}` | Health colour modes DARK / REACTION / GRADIENT; tapped / offline states |
 | **Lag bar** (`S.LagBar`): red `{0.85,0.25,0.2,0.75}` behind health, jumps up on heals, eases down after damage | Kick-ready colouring, spark, flash on interrupt, fade timers |
 | **Player low-health glow**: 14px, red `{1,0.12,0.08}` below 35%, ADD blend, `S.Pulse` 1→0.3 over 1.1 s, off when dead | The 3D/2D **portrait contents**: a game model cannot be rendered here. The 44×44 slot and the `height+1` shift of health/power are reproduced; it shows a "3D" placeholder |

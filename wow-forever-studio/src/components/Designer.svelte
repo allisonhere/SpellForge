@@ -84,6 +84,18 @@
     </aside>{/if}
     <main class="center">
       <Canvas />
+      {#if !Object.keys(d.scene.nodes).length}
+        <div class="starter">
+          <h3>This scene is empty</h3>
+          <p class="muted">The designer shows scenes you build here (saved as <span class="mono">Design/&lt;Name&gt;.scene.json</span> in the project). Opening an existing addon such as Tempus does <b>not</b> convert its frames into a scene: its layout lives in Lua code, and rendering that is a later stage (see docs/NATIVE_UI.md).</p>
+          <p>Start from something real:</p>
+          <div class="row wrap">
+            {#each d.templates.filter((t) => t.name.startsWith("Tempus")) as t (t.id)}<button class="btn primary" onclick={() => d.addTemplate(t)}>+ {t.name}</button>{/each}
+            <button class="btn" onclick={() => d.add("frame")}>+ Empty frame</button>
+          </div>
+          <p class="faint small">The Tempus templates are built from the geometry in Tempus's own UnitFrames.lua. Turn on <b>Preview</b> to run the simulation on them.</p>
+        </div>
+      {/if}
       {#if d.showCode}
         <div class="code">
           <div class="ch"><b>{d.generated.luaPath}</b><span class="faint">generated live from the scene · written only by “Generate”</span>
@@ -107,7 +119,8 @@
   .body { display: flex; flex: 1; min-height: 0; }
   .left { width: 250px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--border); min-height: 0; }
   .right { width: 310px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--border); min-height: 0; }
-  .center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+  .starter { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); width: min(520px, 90%); padding: 18px 20px; background: #12141aee; border: 1px solid var(--border2); border-radius: 12px; box-shadow: 0 18px 60px #000a; z-index: 20; } .starter h3 { margin: 0 0 6px; } .starter p { margin: 6px 0; } .wrap { flex-wrap: wrap; gap: 8px; margin: 10px 0; }
   .pal { padding: 6px 8px; flex: 1; } .pal h4 { margin: 10px 0 6px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
   .pi { display: flex; flex-direction: column; width: 100%; text-align: left; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 5px; background: var(--panel2); }
   .pi:hover { border-color: #8b6cff88; background: #1d1a3a; } .pi b { font-weight: 500; } .pi span { font-size: 11px; } .small { font-size: 11px; }

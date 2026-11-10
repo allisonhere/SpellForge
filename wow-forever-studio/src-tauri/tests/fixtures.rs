@@ -93,3 +93,20 @@ fn parent_folder_lists_nested_addons() {
     assert!(info.tocs.is_empty());
     assert_eq!(info.nested_addons, vec!["AddonA", "AddonB"]);
 }
+
+
+#[test]
+fn addon_assets_resolve_case_insensitively_and_stay_inside_the_addon() {
+    let d = tempfile::tempdir().unwrap();
+    fs::create_dir_all(d.path().join("Media/Fonts")).unwrap();
+    fs::write(d.path().join("Media/Bar-Tempus.TGA"), [0u8; 4]).unwrap();
+    fs::write(d.path().join("Media/Fonts/Inter.ttf"), [0u8; 4]).unwrap();
+    let root = d.path().canonicalize().unwrap();
+    let r = |p: &str| project::resolve_addon_asset(&root, "Tempus", p);
+    assert_eq!(r("Interface\\AddOns\\Tempus\\media\\bar-tempus").as_deref(), Some("Media/Bar-Tempus.TGA"), "no extension + wrong case");
+    assert_eq!(r("interface/addons/tempus/media/fonts/inter.ttf").as_deref(), Some("Media/Fonts/Inter.ttf"));
+    assert_eq!(r("Interface\\AddOns\\OtherAddon\\media\\bar-tempus"), None, "another addon's files are not served");
+    assert_eq!(r("Interface\\Buttons\\WHITE8X8"), None, "Blizzard paths are not served");
+    assert_eq!(r("Interface\\AddOns\\Tempus\\..\\..\\secret"), None, "traversal refused");
+    assert!(project::is_readable_asset("a/b.TGA") && !project::is_readable_asset("a/b.lua") && !project::is_readable_asset("a/b.toc"));
+}

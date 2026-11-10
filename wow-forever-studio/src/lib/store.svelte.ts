@@ -1,4 +1,5 @@
 import { ipc, errText } from "./ipc";
+import { assets } from "./assets.svelte";
 import type { ApiIndex, CompatNote, Diagnostic, FileEntry, Hit, Installation, ProjectInfo, Report, Symbol, UiState } from "./types";
 import type { ApiHit } from "./apiSearch";
 
@@ -70,6 +71,7 @@ class Store {
   });
 
   async loadProjectState(info: ProjectInfo) {
+    assets.reset();
     this.project = info;
     this.tabs = []; this.active = null; this.report = null; this.bufferDiags = {}; this.hits = null;
     this.files = await ipc.projectFiles();

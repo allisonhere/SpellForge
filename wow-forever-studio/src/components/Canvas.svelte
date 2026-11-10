@@ -3,6 +3,7 @@
   import { edgeTargets, right, snapAxis, setRect, solve, top, uiSize, type Rect } from "../lib/layout";
   import { isContainer, LAYERS, STRATA, type SceneNode } from "../lib/scene";
   import { expandEntries, resolve, visibleChain, type Entry } from "../lib/sim/bind";
+  import { assets } from "../lib/assets.svelte";
 
   let viewport: HTMLDivElement;
   const ui = $derived(uiSize(d.scene));
@@ -157,6 +158,9 @@
         {@const gone = d.preview && !(d.simVersion, visibleChain(d.scene, e.id, e.unit, d.sim.state))}
         {@const halo = n.blend === "ADD" && n.kind === "texture"}
         {@const z = d.zoom}
+        {@const tex = n.kind === "texture" ? assets.image(n.texture) : null}
+        {@const barTex = n.kind === "statusbar" ? assets.image(n.texture) : null}
+        {@const fam = n.kind === "fontstring" || n.kind === "button" ? assets.font(n.font) : null}
         {@const shadows = [n.border ? `0 0 0 ${n.border.size * z}px ${css(n.border.color)}` : "", n.shadow ? `0 0 0 ${n.shadow.size * z}px rgba(0,0,0,${n.shadow.alpha})` : "", halo ? `inset 0 0 ${14 * z}px 0 ${css(rs?.tint ?? n.color)}` : ""].filter(Boolean).join(",")}
         {@const anim = n.pulse && !gone && (halo ? (rs ? rs.visible : true) : true) ? `animation:${n.pulse.period / 2}s ease-in-out infinite alternate pulse;animation-play-state:${d.playing || !d.preview ? "running" : "paused"};--hi:${n.pulse.high};--lo:${n.pulse.low};` : ""}
         {@const bar = rs?.barColor ?? n.barColor}
@@ -164,17 +168,17 @@
         {@const fill = rs?.fill ?? Math.max(0, Math.min(1, (n.value - n.min) / ((n.max - n.min) || 1)))}
         <div class="el {n.kind}" class:sel={d.selection === n.id && e.copy === 0} class:hid={n.hidden} class:err={d.solved.errors.has(n.id)} class:copy={e.copy > 0 || e.dim}
           style="left:{px(r.l)};bottom:{px(r.b)};width:{px(r.w)};height:{px(r.h)};z-index:{it.z};opacity:{gone ? 0 : e.dim ? 0.3 : n.hidden ? 0.3 : (halo && rs && !rs.visible) ? 0 : n.alpha};
-          {n.kind === 'fontstring' ? '' : halo ? 'background:transparent;mix-blend-mode:screen;' : `background:${n.kind === 'texture' && n.texture && !rs?.tint ? 'repeating-conic-gradient(#2a2f40 0% 25%, #1d2130 0% 50%) 50% / 12px 12px' : css(rs?.tint ?? bg)};`}{shadows ? `box-shadow:${shadows};` : ''}{anim}"
+          {n.kind === 'fontstring' ? '' : halo ? 'background:transparent;mix-blend-mode:screen;' : `background:${n.kind === 'texture' && tex && !rs?.tint ? `url(${tex}) 0 0 / 100% 100% no-repeat` : n.kind === 'texture' && n.texture && !rs?.tint ? 'repeating-conic-gradient(#2a2f40 0% 25%, #1d2130 0% 50%) 50% / 12px 12px' : css(rs?.tint ?? bg)};`}{shadows ? `box-shadow:${shadows};` : ''}{anim}"
           onpointerdown={(ev) => (live || !d.preview) && down(ev, n.id)} role="button" tabindex="-1" title="{n.name}{e.unit ? ` · ${e.unit}` : ''} · {Math.round(r.w)}×{Math.round(r.h)} @ {Math.round(r.l)},{Math.round(r.b)}">
           {#if n.kind === "statusbar"}
-            <div class="fill" style="width:{fill * 100}%;background:{css(bar)}"></div>
+            <div class="fill" style="width:{fill * 100}%;background-color:{css(bar)};{barTex ? `background-image:url(${barTex});background-size:${r.w * z}px 100%;background-repeat:no-repeat;background-blend-mode:multiply;` : ""}"></div>
           {/if}
-          {#if n.kind === "button"}<span class="lbl" style="font-size:{px(n.fontSize)};color:#fff">{n.text}</span>{/if}
+          {#if n.kind === "button"}<span class="lbl" style="font-size:{px(n.fontSize)};color:#fff;{fam ? `font-family:'${fam}',sans-serif;` : ""}">{n.text}</span>{/if}
           {#if n.kind === "fontstring"}
-            <span class="txt" style="font-size:{px(n.fontSize)};color:{css(n.color)};text-align:{n.justify.toLowerCase()};justify-content:{n.justify === 'RIGHT' ? 'flex-end' : n.justify === 'CENTER' ? 'center' : 'flex-start'};{n.outline ? 'text-shadow:0 0 2px #000,0 0 2px #000,1px 1px 0 #000;' : ''}">{rs?.text ?? n.text}</span>
+            <span class="txt" style="font-size:{px(n.fontSize)};color:{css(n.color)};{fam ? `font-family:'${fam}',sans-serif;` : ""}text-align:{n.justify.toLowerCase()};justify-content:{n.justify === 'RIGHT' ? 'flex-end' : n.justify === 'CENTER' ? 'center' : 'flex-start'};{n.outline ? 'text-shadow:0 0 2px #000,0 0 2px #000,1px 1px 0 #000;' : ''}">{rs?.text ?? n.text}</span>
             {#if rs?.secret}<i class="secret" title={rs.secret === "measured" ? "Secret in combat on Forever (measured for this unit). Needs a game test." : "Likely secret in combat on Forever (measured only for player/target). Needs a game test."}></i>{/if}
           {/if}
-          {#if n.kind === "texture" && n.texture && !rs?.tint}<span class="tx">{n.texture.split(/[\\/]/).pop()}</span>{/if}
+          {#if n.kind === "texture" && n.texture && !tex && !rs?.tint}<span class="tx">{n.texture.split(/[\\/]/).pop()}</span>{/if}
         </div>
       {/if}
     {/each}
