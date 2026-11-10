@@ -16,6 +16,7 @@
 Sources: `data/sources/SOURCES.json` (commits + SHA-256). Nothing here was verified against a running game client by this project.
 
 ### Snapshot caveats
+* The bundled API snapshot is build **70790**; the installed client is **70888** and the importable UI source includes `Blizzard_APIDocumentation*` for 70888. Refreshing the snapshot from that source is a follow-up.
 * `wow-addons-api.json` is an export of Blizzard's in-client APIDocumentation. It documents **signatures**, not addon-callability or protection state.
 * `forever-addon-kit-api.json` lists names only.
 * A name present in the snapshot may still be protected, secret-valued, or restricted. A name absent may be undocumented rather than removed.

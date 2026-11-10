@@ -16,6 +16,8 @@ pub struct Settings {
     pub recent_projects: Vec<String>,
     pub last_project: Option<String>,
     pub installations: Vec<Installation>,
+    /// User-chosen local folder holding Blizzard's interface source (`Interface/AddOns/...`). Never bundled.
+    pub ui_source: Option<String>,
     /// Opaque, frontend-owned UI state (layout, open tabs, shortcuts, scenario).
     pub ui: serde_json::Value,
     pub ai: AiSettings,

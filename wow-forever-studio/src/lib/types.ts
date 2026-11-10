@@ -60,3 +60,9 @@ export interface ApiIndex {
 }
 export interface CompatNote { id: string; names?: string[]; category: string; level: string; text: string; source: string }
 export interface CompatNotes { notes: CompatNote[]; target: { interface: number[]; note: string } }
+
+// Blizzard UI source registry (native UI subsystem)
+export interface UiStatus { root: string; build: string; xmlFiles: number; addons: number; tocFiles: number; templates: number; virtualTemplates: number; parseErrors: number; loadOnDemandAddons: number; undefinedBases: string[]; unknownDirectives: string[]; missingTocFiles: number }
+export interface UiHit { name: string; tag: string; isVirtual: boolean; file: string; line: number }
+export interface XNode { tag: string; attrs: Record<string, string>; children: XNode[]; text: string; line: number }
+export interface UiResolved { node: XNode; chain: string[]; missing: string[] }

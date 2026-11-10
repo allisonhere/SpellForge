@@ -9,6 +9,7 @@
   import Explorer from "./components/Explorer.svelte";
   import ApiBrowser from "./components/ApiBrowser.svelte";
   import SearchPanel from "./components/SearchPanel.svelte";
+  import UiSourcePanel from "./components/UiSourcePanel.svelte";
   import EditorPane from "./components/EditorPane.svelte";
   import TocPanel from "./components/TocPanel.svelte";
   import DocsPanel from "./components/DocsPanel.svelte";
@@ -68,7 +69,7 @@
     else if (k === "f" && e.shiftKey) run("search");
     else if (k === "a" && e.shiftKey) run("api");
   }
-  const leftTabs: [string, string][] = [["explorer", "Explorer"], ["api", "API"], ["search", "Search"]];
+  const leftTabs: [string, string][] = [["explorer", "Explorer"], ["api", "API"], ["search", "Search"], ["ui", "UI"]];
   const rightTabs: [string, string][] = [["toc", "TOC"], ["docs", "Docs"], ["outline", "Outline"]];
 </script>
 
@@ -80,7 +81,7 @@
     {#if store.project && store.ui.showLeft}
       <aside class="side" style="width:{store.ui.leftWidth}px">
         <div class="panel-h">{#each leftTabs as [id, label] (id)}<button class="tabbtn" class:on={store.ui.leftTab === id} onclick={() => { store.ui.leftTab = id; store.persist(); }}>{label}</button>{/each}</div>
-        {#if store.ui.leftTab === "explorer"}<Explorer />{:else if store.ui.leftTab === "api"}<ApiBrowser />{:else}<SearchPanel />{/if}
+        {#if store.ui.leftTab === "explorer"}<Explorer />{:else if store.ui.leftTab === "api"}<ApiBrowser />{:else if store.ui.leftTab === "ui"}<UiSourcePanel />{:else}<SearchPanel />{/if}
       </aside>
       <Splitter dir="v" onresize={(d) => { store.ui.leftWidth = clamp(store.ui.leftWidth + d, 180, 560); store.persist(); }} />
     {/if}

@@ -6,6 +6,7 @@ pub mod lua;
 pub mod project;
 pub mod settings;
 pub mod toc;
+pub mod uisource;
 
 use api::{ApiIndex, Notes};
 use serde::Serialize;
@@ -27,6 +28,15 @@ pub struct AppState {
     notes: Notes,
     /// Project-defined globals from the last full validation (avoids false 'unknown global' noise in live checks).
     globals: Mutex<std::collections::BTreeSet<String>>,
+    ui: Mutex<Option<UiIndex>>,
+}
+
+pub struct UiIndex {
+    root: String,
+    build: String,
+    reg: uisource::Registry,
+    stats: uisource::LoadStats,
+    addons: Vec<uisource::AddonLoad>,
 }
 
 type R<T> = Result<T, String>;
@@ -300,6 +310,81 @@ async fn create_addon(app: tauri::AppHandle, state: State<'_, AppState>, name: S
     state.approve_and_open(&dir).map(Some)
 }
 
+/// Locate the `Interface/AddOns` folder from whatever the user picked (the checkout root, `Interface`, or `AddOns`).
+fn find_ui_addons(picked: &Path) -> Option<PathBuf> {
+    [picked.to_path_buf(), picked.join("AddOns"), picked.join("Interface/AddOns")].into_iter().find(|c| c.join("Blizzard_SharedXML").is_dir())
+}
+
+fn build_ui_index(addons_root: &Path) -> UiIndex {
+    let (reg, stats, addons) = uisource::index_load_set(addons_root, &uisource::LoadContext::forever());
+    let base = addons_root.parent().and_then(Path::parent);
+    let build = base.and_then(|b| std::fs::read_to_string(b.join("version.txt")).ok()).map(|t| t.trim().to_string()).unwrap_or_else(|| "unknown".into());
+    UiIndex { root: addons_root.display().to_string(), build, reg, stats, addons }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UiStatus {
+    root: String, build: String, xml_files: usize, addons: usize, toc_files: usize, templates: usize, virtual_templates: usize,
+    parse_errors: usize, load_on_demand_addons: usize, undefined_bases: Vec<String>, unknown_directives: Vec<String>, missing_toc_files: usize,
+}
+
+fn ui_status(ix: &UiIndex) -> UiStatus {
+    let mut undefined = std::collections::BTreeSet::new();
+    for t in ix.reg.templates.values() { if let Some(r) = uisource::resolve(&ix.reg, &t.name) { undefined.extend(r.missing); } }
+    UiStatus { root: ix.root.clone(), build: ix.build.clone(), xml_files: ix.stats.xml_loaded, addons: ix.stats.addons_loaded, toc_files: ix.stats.files_in_toc, templates: ix.reg.templates.len(), virtual_templates: ix.reg.stats.virtual_templates,
+        parse_errors: ix.reg.stats.parse_errors.len(), load_on_demand_addons: ix.addons.iter().filter(|a| a.load_on_demand).count(), undefined_bases: undefined.into_iter().collect(), unknown_directives: ix.stats.unknown_directives.iter().cloned().collect(), missing_toc_files: ix.stats.missing_toc_files }
+}
+
+/// Import Blizzard's interface source from a local folder the user picks. Read-only; nothing is copied into the app or the repo.
+#[tauri::command]
+async fn import_ui_source(app: tauri::AppHandle, state: State<'_, AppState>) -> R<Option<UiStatus>> {
+    let Some(p) = app.dialog().file().set_title("Select the Blizzard UI source folder (contains Interface/AddOns)").blocking_pick_folder() else { return Ok(None) };
+    let picked = p.into_path().map_err(|e| e.to_string())?;
+    let root = find_ui_addons(&picked).ok_or_else(|| "No Blizzard_SharedXML folder found there. Pick the folder that contains Interface/AddOns (for example a checkout of Blizzard's published UI source).".to_string())?;
+    let canon = root.canonicalize().map_err(|e| e.to_string())?;
+    let ix = tauri::async_runtime::spawn_blocking(move || build_ui_index(&canon)).await.map_err(|e| e.to_string())?;
+    let st = ui_status(&ix);
+    state.settings.lock().unwrap().ui_source = Some(ix.root.clone());
+    state.persist()?;
+    *state.ui.lock().unwrap() = Some(ix);
+    Ok(Some(st))
+}
+
+#[tauri::command]
+async fn ui_source_status(state: State<'_, AppState>) -> R<Option<UiStatus>> {
+    if state.ui.lock().unwrap().is_none() {
+        let Some(root) = state.settings.lock().unwrap().ui_source.clone() else { return Ok(None) };
+        let p = PathBuf::from(root);
+        if !p.is_dir() { return Ok(None); }
+        let ix = tauri::async_runtime::spawn_blocking(move || build_ui_index(&p)).await.map_err(|e| e.to_string())?;
+        *state.ui.lock().unwrap() = Some(ix);
+    }
+    Ok(state.ui.lock().unwrap().as_ref().map(ui_status))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UiHit { name: String, tag: String, is_virtual: bool, file: String, line: u32 }
+
+#[tauri::command]
+fn ui_template_search(state: State<AppState>, query: String, limit: usize) -> R<Vec<UiHit>> {
+    let g = state.ui.lock().unwrap();
+    let Some(ix) = g.as_ref() else { return Err("no Blizzard UI source imported yet".into()) };
+    let q = query.trim().to_ascii_lowercase();
+    if q.is_empty() { return Ok(vec![]); }
+    let mut hits: Vec<(u8, &uisource::Template)> = ix.reg.templates.iter().filter_map(|(k, t)| { if k == &q { Some((0, t)) } else if k.starts_with(&q) { Some((1, t)) } else if k.contains(&q) { Some((2, t)) } else { None } }).collect();
+    hits.sort_by(|a, b| (a.0, a.1.name.len(), &a.1.name).cmp(&(b.0, b.1.name.len(), &b.1.name)));
+    Ok(hits.into_iter().take(limit.min(200)).map(|(_, t)| UiHit { name: t.name.clone(), tag: t.tag.clone(), is_virtual: t.is_virtual, file: t.file.clone(), line: t.line }).collect())
+}
+
+#[tauri::command]
+fn ui_template_resolve(state: State<AppState>, name: String) -> R<uisource::Resolved> {
+    let g = state.ui.lock().unwrap();
+    let Some(ix) = g.as_ref() else { return Err("no Blizzard UI source imported yet".into()) };
+    uisource::resolve_deep(&ix.reg, &name, 6).ok_or_else(|| format!("'{name}' is not defined in the imported source"))
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -309,12 +394,12 @@ pub fn run() {
             let settings_path = cfg.join("settings.json");
             let settings = settings::load(&settings_path);
             let api = std::fs::read_to_string(data.join("api-index.user.json")).ok().and_then(|r| ApiIndex::from_raw(r, "imported").ok()).unwrap_or_else(ApiIndex::bundled);
-            app.manage(AppState { settings_path, data_dir: data, settings: Mutex::new(settings), project: Mutex::new(None), api: Mutex::new(api), notes: Notes::bundled(), globals: Default::default() });
+            app.manage(AppState { settings_path, data_dir: data, settings: Mutex::new(settings), project: Mutex::new(None), api: Mutex::new(api), notes: Notes::bundled(), globals: Default::default(), ui: Mutex::new(None) });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             boot, save_ui, pick_project, open_recent, open_nested, project_info, project_files, read_file, write_file, validate_project,
-            check_buffer, search_project, api_index, compat_notes, import_api_snapshot, reset_api_snapshot, add_installation,
+            check_buffer, search_project, import_ui_source, ui_source_status, ui_template_search, ui_template_resolve, api_index, compat_notes, import_api_snapshot, reset_api_snapshot, add_installation,
             remove_installation, package_project, deploy_plan, deploy_apply, create_addon
         ])
         .run(tauri::generate_context!())

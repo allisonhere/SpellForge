@@ -7,3 +7,5 @@
 **Phase 3: simulation — done** (see README). Follow-ups: sandboxed Lua execution of addon code against the simulated state, more Tempus components (group/raid frames, buffs, nameplates) and *importing* a component's layout from the Lua source instead of transcribing it by hand, recorded-scenario import. Original scope: seeded deterministic state, scenarios (idle, solo combat, target casting, 5-man, 40-man raid, low-health, aura churn), status/cast/cooldown rendering, event bus, explicit supported-API table with warnings, side-by-side source/preview. First target: one accurately rendered Tempus component.
 
 **Phase 4: advanced workflow** — local-only AI (LM Studio/Ollama/OpenAI-compatible on loopback, opt-in, diff review before apply, RAG over the API index and project), richer diagnostics, import of in-game Lua error logs, companion logging addon (supported APIs only), reusable templates.
+
+**Native UI (see docs/NATIVE_UI.md):** Stage 1 (FrameXML importer) done. Next: in-game exporter addon to verify inferred merge rules, sandboxed Lua runner, renderer, compatibility report. Blocked: real Blizzard textures/fonts until the client's files are readable.

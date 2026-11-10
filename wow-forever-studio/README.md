@@ -6,6 +6,13 @@ No accounts, no telemetry, no CDN, no online API. After the one-time dependency 
 > **Status: Phases 1 (IDE foundation), 2 (visual designer) and 3 (offline simulation) are implemented. Phase 4 (local AI, error-log import, companion addon) is not.**
 > See [docs/ROADMAP.md](docs/ROADMAP.md) and [Limitations](#limitations).
 
+## Native Blizzard UI importer (in progress): the **UI** tab
+
+Point SpellForge at a local copy of Blizzard's interface source and it indexes the real FrameXML **the way the client loads it**
+(TOC directives, `camelot`/`mainline` game types, `[Family]`/`[Game]` paths): 4,084 templates and 928 XML files for build 70888, 0 parse errors. Search any
+template and see its resolved inheritance chain. **Real textures and fonts cannot be used yet** because the client stores them encrypted in this beta;
+the renderer and sandboxed Lua stages are not built. See [docs/NATIVE_UI.md](docs/NATIVE_UI.md) for measurements, assumptions and the plan.
+
 ## Simulation preview (Phase 3) — the **Preview** button in the Design tab
 
 A deterministic, seeded simulation of *unit state* drives the widgets you design. Same scenario + seed ⇒ identical run, every time (tested).
