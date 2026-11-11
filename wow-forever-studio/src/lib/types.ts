@@ -44,6 +44,8 @@ export interface UiState {
   scenarioId?: string;
   /** Testing hook: start the simulation at this speed on launch. Never written back. */
   autoplay?: number;
+  /** Testing hook: send this prompt to the AI once on launch. Never written back. */
+  autoprompt?: string;
   openFiles?: string[]; activeFile?: string | null;
   cursor?: Record<string, { line: number; col: number }>;
 }
@@ -66,3 +68,7 @@ export interface UiStatus { root: string; build: string; xmlFiles: number; addon
 export interface UiHit { name: string; tag: string; isVirtual: boolean; file: string; line: number }
 export interface XNode { tag: string; attrs: Record<string, string>; children: XNode[]; text: string; line: number }
 export interface UiResolved { node: XNode; chain: string[]; missing: string[] }
+
+// AI assistant (optional, off by default)
+export interface AiProvider { id: string; name: string; kind: string; baseUrl: string; model: string; enabled: boolean; cloud: boolean }
+export interface AiStatus { enabled: boolean; providers: AiProvider[] }

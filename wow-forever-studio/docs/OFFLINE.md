@@ -5,6 +5,7 @@
 * The webview is loaded from the app bundle (`frontendDist`). The CSP is `default-src 'self'`; `connect-src` allows only Tauri IPC. No CDN, remote font, analytics or update check exists.
 * Monaco and its worker are bundled by Vite from `node_modules` (see `src/lib/monacoSetup.ts`).
 * The API snapshot and compat notes are compiled into the binary (`include_str!`). An imported snapshot is stored in the app data dir.
+* The optional AI assistant is the only feature that opens a network connection: only to localhost, only when enabled.
 * Dialogs are native (Rust). Packaging and deployment are local filesystem operations.
 * Fonts are the system's UI/monospace stack; nothing is fetched.
 

@@ -7,8 +7,9 @@
   import Inspector from "./Inspector.svelte";
   import Hierarchy from "./Hierarchy.svelte";
   import ScenarioPanel from "./ScenarioPanel.svelte";
+  import StudioChat from "./StudioChat.svelte";
 
-  let leftTab = $state<"layers" | "add" | "sim">("add");
+  let leftTab = $state<"layers" | "add" | "sim" | "create">("create");
   let newName = $state("");
   const resKey = $derived(`${d.scene.resolution.w}x${d.scene.resolution.h}`);
   const kindLabel: Record<string, string> = { frame: "Frame", button: "Button", texture: "Texture", fontstring: "Text", statusbar: "Status bar" };
@@ -18,7 +19,9 @@
   let showLeft = $state(true), showRight = $state(true);
   onMount(() => {
     // narrow windows: give the canvas the space; panels stay one click away
-    if (window.innerWidth < 1250) { showLeft = false; showRight = false; } else if (window.innerWidth < 1500) showRight = false;
+    // the Create (chat) panel is the main interface, so it stays open until the window is really narrow
+    if (window.innerWidth < 900) showLeft = false;
+    if (window.innerWidth < 1500) showRight = false;
     if (store.extra.scenarioId) d.scenarioId = store.extra.scenarioId;
     if (store.extra.preview) d.preview = true;
     if (store.extra.autoplay) { d.speed = store.extra.autoplay; d.play(); store.extra.autoplay = undefined; }
@@ -71,8 +74,9 @@
 
   <div class="body">
     {#if showLeft}<aside class="left">
-      <div class="panel-h"><button class="tabbtn" class:on={leftTab === "add"} onclick={() => (leftTab = "add")}>Add</button><button class="tabbtn" class:on={leftTab === "layers"} onclick={() => (leftTab = "layers")}>Hierarchy</button><button class="tabbtn" class:on={leftTab === "sim"} onclick={() => (leftTab = "sim")}>Simulate</button></div>
-      {#if leftTab === "add"}
+      <div class="panel-h"><button class="tabbtn" class:on={leftTab === "create"} onclick={() => (leftTab = "create")}>Create</button><button class="tabbtn" class:on={leftTab === "add"} onclick={() => (leftTab = "add")}>Add</button><button class="tabbtn" class:on={leftTab === "layers"} onclick={() => (leftTab = "layers")}>Hierarchy</button><button class="tabbtn" class:on={leftTab === "sim"} onclick={() => (leftTab = "sim")}>Simulate</button></div>
+      {#if leftTab === "create"}<StudioChat />
+      {:else if leftTab === "add"}
         <div class="scroll pal">
           <h4>Elements</h4>
           {#each KINDS as k (k)}<button class="pi" onclick={() => d.add(k)}><b>{kindLabel[k]}</b><span class="faint">{kindHint[k]}</span></button>{/each}
@@ -117,7 +121,7 @@
   .chk { display: flex; gap: 6px; align-items: center; color: var(--dim); font-size: 12px; } input.g { width: 54px; padding: 2px 6px; }
   .btn.on { color: var(--cyan); }
   .body { display: flex; flex: 1; min-height: 0; }
-  .left { width: 250px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--border); min-height: 0; }
+  .left { width: 300px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--border); min-height: 0; }
   .right { width: 310px; flex: none; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--border); min-height: 0; }
   .center { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
   .starter { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); width: min(520px, 90%); padding: 18px 20px; background: #12141aee; border: 1px solid var(--border2); border-radius: 12px; box-shadow: 0 18px 60px #000a; z-index: 20; } .starter h3 { margin: 0 0 6px; } .starter p { margin: 6px 0; } .wrap { flex-wrap: wrap; gap: 8px; margin: 10px 0; }

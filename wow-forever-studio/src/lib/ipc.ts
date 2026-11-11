@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import type { UiHit, UiResolved, UiStatus, Boot, Diagnostic, Symbol, DeployPlan, DeployResult, FileEntry, Hit, Installation, PackageResult, ProjectInfo, Report, UiState } from "./types";
+import { invoke, Channel } from "@tauri-apps/api/core";
+import type { AiProvider, AiStatus, UiHit, UiResolved, UiStatus, Boot, Diagnostic, Symbol, DeployPlan, DeployResult, FileEntry, Hit, Installation, PackageResult, ProjectInfo, Report, UiState } from "./types";
 
 // The only bridge to the native side. No filesystem or shell plugin is exposed to the frontend.
 export const ipc = {
@@ -15,6 +15,15 @@ export const ipc = {
   validate: () => invoke<Report>("validate_project"),
   checkBuffer: (path: string, content: string) => invoke<{ diagnostics: Diagnostic[]; symbols: Symbol[] }>("check_buffer", { path, content }),
   search: (query: string, caseSensitive: boolean, identifier: boolean) => invoke<Hit[]>("search_project", { query, caseSensitive, identifier }),
+  aiStatus: () => invoke<AiStatus>("ai_status"),
+  aiSetEnabled: (enabled: boolean) => invoke<AiStatus>("ai_set_enabled", { enabled }),
+  aiSaveProvider: (provider: AiProvider) => invoke<AiStatus>("ai_save_provider", { provider }),
+  aiListModels: (providerId: string) => invoke<string[]>("ai_list_models", { providerId }),
+  aiCancel: () => invoke<void>("ai_cancel"),
+  aiChat: (providerId: string, messages: { role: string; content: string }[], onDelta: (d: string) => void) => {
+    const ch = new Channel<string>(); ch.onmessage = onDelta;
+    return invoke<string>("ai_chat", { providerId, messages, onDelta: ch });
+  },
   importUiSource: () => invoke<UiStatus | null>("import_ui_source"),
   uiSourceStatus: () => invoke<UiStatus | null>("ui_source_status"),
   uiTemplateSearch: (query: string, limit = 80) => invoke<UiHit[]>("ui_template_search", { query, limit }),

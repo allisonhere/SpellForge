@@ -10,6 +10,7 @@ import { Sim, TICK_MS } from "./sim/engine";
 import { BUILTIN_SCENARIOS, mergeScenarios, scenarioDefaults } from "./sim/scenarios";
 import { checkScene } from "./sim/bind";
 import type { Scenario } from "./sim/types";
+import { applyActions, type ApplyResult } from "./ai/actions";
 
 export const RESOLUTIONS: [string, number, number][] = [["1280×720", 1280, 720], ["1920×1080", 1920, 1080], ["2560×1440", 2560, 1440], ["3440×1440 ultrawide", 3440, 1440], ["3840×2160", 3840, 2160]];
 const sceneFile = (name: string) => `Design/${name}.scene.json`;
@@ -29,6 +30,26 @@ class Designer {
   history = new History<Scene>();
   historyTick = $state(0);
   private commitTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // ---- AI proposals ----
+  /** What the last AI turn changed, shown on the canvas until accepted or rejected. */
+  proposal = $state<{ created: string[]; changed: string[]; removed: string[] } | null>(null);
+  proposedNames = $derived(new Set([...(this.proposal?.created ?? []), ...(this.proposal?.changed ?? [])]));
+  /** Validate and apply AI actions as ONE undo step. On any error nothing changes and the errors are returned for repair. */
+  applyBatch(actions: unknown): ApplyResult {
+    const r = applyActions($state.snapshot(this.scene) as Scene, actions, this.templates);
+    if (r.errors.length) return r;
+    this.commit();
+    this.edit(() => { this.scene = r.scene; }, true);
+    this.commit();
+    this.selection = null;
+    this.proposal = { created: r.created, changed: r.changed, removed: r.removed };
+    if (r.scenarioId) this.scenarioId = r.scenarioId;
+    if (r.created.length || r.changed.length) this.preview = true;
+    return r;
+  }
+  acceptProposal() { this.proposal = null; }
+  rejectProposal() { if (!this.proposal) return; this.commit(); this.undo(); this.proposal = null; }
 
   // ---- simulation (Phase 3) ----
   preview = $state(false);

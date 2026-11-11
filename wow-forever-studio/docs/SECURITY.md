@@ -14,7 +14,7 @@
 * Approved project roots are persisted by Rust; `open_recent` accepts only those.
 
 ## Data & network
-No telemetry, accounts or network calls. The AI settings schema exists (disabled); when implemented it must enforce loopback-only endpoints in Rust, not in the UI.
+No telemetry or accounts. The only network code is the optional AI provider client (`src-tauri/src/ai.rs`), dormant until the user turns AI on; it connects only to loopback addresses (enforced in Rust), never follows redirects, and screens every outgoing message for local paths, Blizzard source paths and key-shaped strings. The webview has no network permission and the CSP is unchanged. See docs/AI_STUDIO.md.
 
 ## Game protections
 The IDE analyses and edits files only. It does not inject into, attach to, or automate the game, and nothing in it helps bypass protected actions, taint, secret values or combat lockdown. Lints exist to *steer authors toward* supported patterns.

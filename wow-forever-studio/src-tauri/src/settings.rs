@@ -26,17 +26,26 @@ pub struct Settings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AiSettings {
+    /// Master switch. Off by default; no AI network code runs while it is off.
     pub enabled: bool,
-    /// Must be a loopback address; enforced in backend.
     pub endpoint: String,
     pub model: String,
+    pub providers: Vec<crate::ai::Provider>,
 }
 impl Default for AiSettings {
-    fn default() -> Self { Self { enabled: false, endpoint: "http://127.0.0.1:1234/v1".into(), model: String::new() } }
+    fn default() -> Self { Self { enabled: false, endpoint: String::new(), model: String::new(), providers: crate::ai::default_providers() } }
+}
+impl AiSettings {
+    /// Make sure the built-in providers exist even in settings files written before they were introduced.
+    pub fn ensure_defaults(&mut self) {
+        for d in crate::ai::default_providers() { if !self.providers.iter().any(|p| p.id == d.id) { self.providers.push(d); } }
+    }
 }
 
 pub fn load(path: &Path) -> Settings {
-    std::fs::read_to_string(path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+    let mut s: Settings = std::fs::read_to_string(path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+    s.ai.ensure_defaults();
+    s
 }
 
 /// Atomic save: write to a temp file then rename.

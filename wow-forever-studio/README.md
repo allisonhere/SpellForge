@@ -6,6 +6,12 @@ No accounts, no telemetry, no CDN, no online API. After the one-time dependency 
 > **Status: Phases 1 (IDE foundation), 2 (visual designer) and 3 (offline simulation) are implemented. Phase 4 (local AI, error-log import, companion addon) is not.**
 > See [docs/ROADMAP.md](docs/ROADMAP.md) and [Limitations](#limitations).
 
+## AI creation studio (optional, off by default): the **Create** tab
+
+Describe an interface and watch it appear in the designer, with the simulation running. The AI emits validated actions (never raw edits); each
+turn is one undo step you can keep or reject. Local models only for now (Ollama / LM Studio, loopback enforced in the backend); cloud providers
+are planned. Blizzard icons and textures are placeholders until the client's files are readable. See [docs/AI_STUDIO.md](docs/AI_STUDIO.md).
+
 ## Native Blizzard UI importer (in progress): the **UI** tab
 
 Point SpellForge at a local copy of Blizzard's interface source and it indexes the real FrameXML **the way the client loads it**

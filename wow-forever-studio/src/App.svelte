@@ -38,7 +38,7 @@
       const saved = boot.settings.ui;
       store.cursor = saved?.cursor ?? {};
       if (saved?.view === "design") store.view = "design";
-      store.extra = { preview: saved?.preview, scenarioId: saved?.scenarioId, autoplay: saved?.autoplay };
+      store.extra = { preview: saved?.preview, scenarioId: saved?.scenarioId, autoplay: saved?.autoplay, autoprompt: saved?.autoprompt };
       const last = boot.settings.lastProject;
       if (last && boot.settings.recentProjects.includes(last)) {
         await openRecent(last);

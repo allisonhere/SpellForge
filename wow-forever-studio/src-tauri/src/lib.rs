@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod api;
 pub mod diag;
 pub mod distribute;
@@ -29,6 +30,7 @@ pub struct AppState {
     /// Project-defined globals from the last full validation (avoids false 'unknown global' noise in live checks).
     globals: Mutex<std::collections::BTreeSet<String>>,
     ui: Mutex<Option<UiIndex>>,
+    ai_cancel: std::sync::atomic::AtomicBool,
 }
 
 pub struct UiIndex {
@@ -404,6 +406,67 @@ fn ui_template_resolve(state: State<AppState>, name: String) -> R<uisource::Reso
     uisource::resolve_deep(&ix.reg, &name, 6).ok_or_else(|| format!("'{name}' is not defined in the imported source"))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AiStatus { enabled: bool, providers: Vec<ai::Provider> }
+
+fn ai_status_of(state: &AppState) -> AiStatus {
+    let s = state.settings.lock().unwrap();
+    AiStatus { enabled: s.ai.enabled, providers: s.ai.providers.clone() }
+}
+
+#[tauri::command]
+fn ai_status(state: State<AppState>) -> AiStatus { ai_status_of(&state) }
+
+/// Master switch. While off, no AI request is ever made.
+#[tauri::command]
+fn ai_set_enabled(state: State<AppState>, enabled: bool) -> R<AiStatus> {
+    state.settings.lock().unwrap().ai.enabled = enabled;
+    state.persist()?;
+    Ok(ai_status_of(&state))
+}
+
+/// Update an existing provider (model, endpoint, enabled). Cloud providers are not available in this build.
+#[tauri::command]
+fn ai_save_provider(state: State<AppState>, provider: ai::Provider) -> R<AiStatus> {
+    if provider.cloud { return Err("cloud providers are not available in this build".into()); }
+    if provider.kind != "openai-compatible" { return Err(format!("provider kind '{}' is not supported yet", provider.kind)); }
+    ai::validate_endpoint(&provider)?;
+    {
+        let mut s = state.settings.lock().unwrap();
+        let slot = s.ai.providers.iter_mut().find(|p| p.id == provider.id).ok_or_else(|| "unknown provider".to_string())?;
+        slot.base_url = provider.base_url; slot.model = provider.model.trim().to_string(); slot.enabled = provider.enabled;
+    }
+    state.persist()?;
+    Ok(ai_status_of(&state))
+}
+
+fn active_provider(state: &AppState, id: &str) -> R<ai::Provider> {
+    let s = state.settings.lock().unwrap();
+    if !s.ai.enabled { return Err("AI is off. Turn it on in Settings first; nothing is sent while it is off.".into()); }
+    let p = s.ai.providers.iter().find(|p| p.id == id).cloned().ok_or_else(|| "unknown provider".to_string())?;
+    if !p.enabled { return Err(format!("{} is not enabled", p.name)); }
+    Ok(p)
+}
+
+#[tauri::command]
+async fn ai_list_models(state: State<'_, AppState>, provider_id: String) -> R<Vec<String>> {
+    let p = active_provider(&state, &provider_id)?;
+    ai::list_models(&p).await
+}
+
+#[tauri::command]
+fn ai_cancel(state: State<AppState>) { state.ai_cancel.store(true, std::sync::atomic::Ordering::SeqCst); }
+
+/// Stream a chat completion; text fragments arrive on `on_delta`. The full reply is returned at the end.
+#[tauri::command]
+async fn ai_chat(state: State<'_, AppState>, provider_id: String, messages: Vec<ai::ChatMsg>, on_delta: tauri::ipc::Channel<String>) -> R<String> {
+    let p = active_provider(&state, &provider_id)?;
+    state.ai_cancel.store(false, std::sync::atomic::Ordering::SeqCst);
+    let st = &*state;
+    ai::chat_stream(&p, &messages, |d| { let _ = on_delta.send(d.to_string()); }, || st.ai_cancel.load(std::sync::atomic::Ordering::SeqCst)).await
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -413,12 +476,12 @@ pub fn run() {
             let settings_path = cfg.join("settings.json");
             let settings = settings::load(&settings_path);
             let api = std::fs::read_to_string(data.join("api-index.user.json")).ok().and_then(|r| ApiIndex::from_raw(r, "imported").ok()).unwrap_or_else(ApiIndex::bundled);
-            app.manage(AppState { settings_path, data_dir: data, settings: Mutex::new(settings), project: Mutex::new(None), api: Mutex::new(api), notes: Notes::bundled(), globals: Default::default(), ui: Mutex::new(None) });
+            app.manage(AppState { settings_path, data_dir: data, settings: Mutex::new(settings), project: Mutex::new(None), api: Mutex::new(api), notes: Notes::bundled(), globals: Default::default(), ui: Mutex::new(None), ai_cancel: std::sync::atomic::AtomicBool::new(false) });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             boot, save_ui, pick_project, open_recent, open_nested, resolve_asset, read_asset_bytes, project_info, project_files, read_file, write_file, validate_project,
-            check_buffer, search_project, import_ui_source, ui_source_status, ui_template_search, ui_template_resolve, api_index, compat_notes, import_api_snapshot, reset_api_snapshot, add_installation,
+            check_buffer, search_project, import_ui_source, ui_source_status, ai_status, ai_set_enabled, ai_save_provider, ai_list_models, ai_cancel, ai_chat, ui_template_search, ui_template_resolve, api_index, compat_notes, import_api_snapshot, reset_api_snapshot, add_installation,
             remove_installation, package_project, deploy_plan, deploy_apply, create_addon
         ])
         .run(tauri::generate_context!())

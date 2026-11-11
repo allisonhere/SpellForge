@@ -25,13 +25,13 @@ class Store {
   apiOrigin = $state("bundled");
   notes = $state.raw<CompatNote[]>([]);
   selectedApi = $state<ApiHit | null>(null);
-  ui = $state<Required<Omit<UiState, "cursor" | "openFiles" | "activeFile" | "view" | "preview" | "scenarioId" | "autoplay">>>({
+  ui = $state<Required<Omit<UiState, "cursor" | "openFiles" | "activeFile" | "view" | "preview" | "scenarioId" | "autoplay" | "autoprompt">>>({
     leftWidth: 270, rightWidth: 320, bottomHeight: 220, showLeft: true, showRight: true, showBottom: true,
     leftTab: "explorer", rightTab: "toc", bottomTab: "problems",
   });
   cursor: Record<string, { line: number; col: number }> = {};
   /** Designer view state that is persisted with the workspace. */
-  extra = $state<{ preview?: boolean; scenarioId?: string; autoplay?: number }>({});
+  extra = $state<{ preview?: boolean; scenarioId?: string; autoplay?: number; autoprompt?: string }>({});
   modal = $state<null | "settings" | "deploy" | "new" | "palette">(null);
   palettePrefix = $state("");
   busy = $state("");

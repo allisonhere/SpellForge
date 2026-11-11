@@ -166,7 +166,7 @@
         {@const bar = rs?.barColor ?? n.barColor}
         {@const bg = rs?.bgColor ?? n.color}
         {@const fill = rs?.fill ?? Math.max(0, Math.min(1, (n.value - n.min) / ((n.max - n.min) || 1)))}
-        <div class="el {n.kind}" class:sel={d.selection === n.id && e.copy === 0} class:hid={n.hidden} class:err={d.solved.errors.has(n.id)} class:copy={e.copy > 0 || e.dim}
+        <div class="el {n.kind}" class:sel={d.selection === n.id && e.copy === 0} class:hid={n.hidden} class:err={d.solved.errors.has(n.id)} class:copy={e.copy > 0 || e.dim} class:proposed={d.proposal && d.proposedNames.has(n.name) && e.copy === 0}
           style="left:{px(r.l)};bottom:{px(r.b)};width:{px(r.w)};height:{px(r.h)};z-index:{it.z};opacity:{gone ? 0 : e.dim ? 0.3 : n.hidden ? 0.3 : (halo && rs && !rs.visible) ? 0 : n.alpha};
           {n.kind === 'fontstring' ? '' : halo ? 'background:transparent;mix-blend-mode:screen;' : `background:${n.kind === 'texture' && tex && !rs?.tint ? `url(${tex}) 0 0 / 100% 100% no-repeat` : n.kind === 'texture' && n.texture && !rs?.tint ? 'repeating-conic-gradient(#2a2f40 0% 25%, #1d2130 0% 50%) 50% / 12px 12px' : css(rs?.tint ?? bg)};`}{shadows ? `box-shadow:${shadows};` : ''}{anim}"
           onpointerdown={(ev) => (live || !d.preview) && down(ev, n.id)} role="button" tabindex="-1" title="{n.name}{e.unit ? ` · ${e.unit}` : ''} · {Math.round(r.w)}×{Math.round(r.h)} @ {Math.round(r.l)},{Math.round(r.b)}">
@@ -206,6 +206,7 @@
   .el.sel { outline: 1px solid var(--cyan); }
   .el.err { outline: 1px dashed var(--red); }
   .el.hid { outline: 1px dashed #566078; }
+  .el.proposed { outline: 2px dashed var(--violet); outline-offset: 1px; }
   .el.copy { cursor: default; } .el.copy:hover { outline: none; }
   @keyframes pulse { from { opacity: var(--hi); } to { opacity: var(--lo); } }
   .secret { position: absolute; right: 1px; top: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 4px var(--amber); pointer-events: none; }
